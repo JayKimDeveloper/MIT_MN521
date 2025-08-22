@@ -16,21 +16,22 @@ We are exploring the role of automation in networking through hands-on labs, wee
 
 ## 📂 Repository Structure
 
-├── Documents/ # Reports, design docs, and written submissions
-├── Progress/ # Weekly progress folders
-│ ├── Week1/ # Introduction to Network Automation
-│ ├── Week2/
-│ ├── Week3/ 
-│ ├── Week4/ 
-│ ├── Week5/ 
-│ ├── Week6/ 
-│ ├── Week7/ 
-│ ├── Week8/ 
-│ ├── Week9/ 
-│ ├── Week10/ 
-│ ├── Week11/
-│ └── Week12/ 
-└── README.md
+📂 Documents/       # Reports, design docs, and written submissions <br>
+📂 Progress/        # Weekly progress folders <br>
+   ├─ 📁 Week1/     # Introduction to Network Automation <br>
+   ├─ 📁 Week2/ <br>
+   ├─ 📁 Week3/ <br>
+   ├─ 📁 Week4/ <br>
+   ├─ 📁 Week5/ <br>
+   ├─ 📁 Week6/ <br>
+   ├─ 📁 Week7/ <br>
+   ├─ 📁 Week8/ <br>
+   ├─ 📁 Week9/ <br>
+   ├─ 📁 Week10/ <br>
+   ├─ 📁 Week11/ <br>
+   └─ 📁 Week12/ <br>
+📄 README.md <br>
+
 
 
 - **Documents/** → All formal reports and supporting documentation.  
