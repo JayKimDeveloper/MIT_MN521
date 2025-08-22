@@ -47,7 +47,7 @@ Please note:
 
 *(Example placeholder below – to be replaced with actual diagram)*  
 
-![Network Architecture](./assets/network-architecture.png)
+![Network Architecture](./assets/network-architecture.jpeg)
 
 ---
 
