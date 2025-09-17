@@ -14,6 +14,16 @@ We are exploring the role of automation in networking through hands-on labs, wee
 
 ---
 
+## Notes on Ansible Inventory
+
+The inventory files in this repository contain sample credentials (e.g., `ansible_password=cisco123`) and legacy crypto settings.  
+Please note:
+
+- These values are **for GNS3 lab and academic assignment purposes only**.  
+- They do not represent any production environment or real credentials.  
+- In a real-world setting, sensitive data would be stored securely (e.g., Ansible Vault, environment variables, or external secrets management).  
+
+
 ## 📂 Repository Structure
 
 📂 Documents/       # Reports, design docs, and written submissions <br>
