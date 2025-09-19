@@ -1,0 +1,67 @@
+---
+# main.yml - 멀티테넌트 네트워크 자동화 메인 실행 파일
+- name: "===== 멀티테넌트 네트워크 인프라 배포 시작 ====="
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: 배포 시작 알림
+      debug:
+        msg: |
+          ========================================
+          멀티테넌트 네트워크 인프라 자동 배포
+          ========================================
+          
+          배포 대상:
+          - CustomerA (dist1): VLAN 100-109
+          - CustomerB (dist1): VLAN 200-209  
+          - CustomerC (dist2): VLAN 300-309
+          
+          구성 스위치:
+          - Distribution: dist1-sw, dist2-sw
+          - Access: access-sw1~4
+          
+          배포 순서:
+          1. Distribution Layer 설정
+          2. Access Layer 설정
+          ========================================
+
+- name: "1단계: Distribution Layer 배포"
+  import_playbook: distribution.yml
+
+- name: "2단계: Access Layer 배포"  
+  import_playbook: access.yml
+
+- name: "===== 배포 완료 및 요약 ====="
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - vars/customers.yml
+  tasks:
+    - name: 배포 완료 요약
+      debug:
+        msg: |
+          ========================================
+          🎉 멀티테넌트 네트워크 배포 완료! 🎉
+          ========================================
+          
+          배포된 고객사:
+          {% for customer in customers %}
+          📋 {{ customer.name }} ({{ customer.location }})
+             ├── 서버 VLAN: {{ customer.vlans.web }}(Web), {{ customer.vlans.app }}(App), {{ customer.vlans.db }}(DB)
+             ├── 사용자 VLAN: {{ customer.vlans.users }}
+             ├── 서버 수: {{ customer.servers | length }}대
+             ├── 직원 수: {{ customer.users | length }}명
+             └── 네트워크: {{ customer.networks.web.split('.')[0] }}.{{ customer.networks.web.split('.')[1] }}.x.x
+          {% endfor %}
+          
+          🔧 테스트 방법:
+          1. PC에서 게이트웨이 ping 테스트
+          2. 동일 VLAN 내 PC 간 통신 확인
+          3. 다른 고객 간 격리 확인
+          
+          🚀 확장 방법:
+          - vars/customers.yml에서 servers/users 리스트에 PC 추가
+          - ansible-playbook -i inventory/hosts.ini main.yml 재실행
+          
+          ========================================
+          

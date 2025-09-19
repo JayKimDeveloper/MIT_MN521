@@ -1,0 +1,119 @@
+---
+# 간단한 access.yml - 확장 가능한 구조
+- name: Configure Access Switches - Simple Structure
+  hosts: access
+  gather_facts: no
+  vars_files:
+    - vars/customers.yml
+  
+  tasks:
+    - name: Create VLANs
+      raw: |
+        configure terminal
+        {% for customer in customers %}
+        {% set server_switch = switch_mapping[customer.location].servers %}
+        {% set user_switch = switch_mapping[customer.location].users %}
+        
+        {% if inventory_hostname == server_switch %}
+        ! {{ customer.name }} Server VLANs
+        vlan {{ customer.vlans.web }}
+        name {{ customer.name }}-WEB-SERVERS
+        vlan {{ customer.vlans.app }}
+        name {{ customer.name }}-APP-SERVERS  
+        vlan {{ customer.vlans.db }}
+        name {{ customer.name }}-DB-SERVERS
+        {% endif %}
+        
+        {% if inventory_hostname == user_switch %}
+        ! {{ customer.name }} User VLAN
+        vlan {{ customer.vlans.users }}
+        name {{ customer.name }}-USERS
+        {% endif %}
+        {% endfor %}
+        exit
+        write memory
+
+    - name: Configure Server Ports
+      raw: |
+        configure terminal
+        {% for customer in customers %}
+        {% set server_switch = switch_mapping[customer.location].servers %}
+        {% if inventory_hostname == server_switch %}
+        {% for server in customer.servers %}
+        ! {{ customer.name }} {{ server.name }} - {{ server.description }}
+        interface FastEthernet{{ server.port }}
+        description "{{ customer.name }} {{ server.description }} - {{ server.name }} ({{ server.person | default('Server') }})"
+        switchport mode access
+        switchport access vlan {{ customer.vlans[server.type] }}
+        no shutdown
+        {% endfor %}
+        {% endif %}
+        {% endfor %}
+        exit
+        write memory
+      when: inventory_hostname in ['access-sw1', 'access-sw3']
+
+    - name: Configure User Ports  
+      raw: |
+        configure terminal
+        {% for customer in customers %}
+        {% set user_switch = switch_mapping[customer.location].users %}
+        {% if inventory_hostname == user_switch %}
+        {% for user in customer.users %}
+        ! {{ customer.name }} {{ user.name }} - {{ user.person }}
+        interface FastEthernet{{ user.port }}
+        description "{{ customer.name }} {{ user.person }} ({{ user.role }}) - {{ user.name }}"
+        switchport mode access
+        switchport access vlan {{ customer.vlans.users }}
+        no shutdown
+        {% endfor %}
+        {% endif %}
+        {% endfor %}
+        exit
+        write memory
+      when: inventory_hostname in ['access-sw2', 'access-sw4']
+
+    - name: Configure Trunk Ports
+      raw: |
+        configure terminal
+        interface FastEthernet0/1
+        description "Trunk to Distribution Switch"
+        switchport mode trunk
+        {% for customer in customers %}
+        {% set server_switch = switch_mapping[customer.location].servers %}
+        {% set user_switch = switch_mapping[customer.location].users %}
+        
+        {% if inventory_hostname == server_switch %}
+        switchport trunk allowed vlan add {{ customer.vlans.web }},{{ customer.vlans.app }},{{ customer.vlans.db }}
+        {% endif %}
+        
+        {% if inventory_hostname == user_switch %}
+        switchport trunk allowed vlan add {{ customer.vlans.users }}
+        {% endif %}
+        {% endfor %}
+        no shutdown
+        exit
+        write memory
+
+    - name: Show Configuration Summary
+      debug:
+        msg: |
+          ===== {{ inventory_hostname }} 설정 완료 =====
+          {% for customer in customers %}
+          {% set server_switch = switch_mapping[customer.location].servers %}
+          {% set user_switch = switch_mapping[customer.location].users %}
+          
+          {% if inventory_hostname == server_switch %}
+          {{ customer.name }} 서버들:
+          {% for server in customer.servers %}
+          - {{ server.name }}: {{ server.description }} (포트 {{ server.port }})
+          {% endfor %}
+          {% endif %}
+          
+          {% if inventory_hostname == user_switch %}
+          {{ customer.name }} 직원들:
+          {% for user in customer.users %}
+          - {{ user.name }}: {{ user.person }} ({{ user.role }}, 포트 {{ user.port }})
+          {% endfor %}
+          {% endif %}
+          {% endfor %}

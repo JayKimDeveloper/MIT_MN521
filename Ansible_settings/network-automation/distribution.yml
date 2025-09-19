@@ -1,0 +1,100 @@
+---
+# distribution.yml - ios_config 모듈 사용
+- name: Configure Distribution Switches
+  hosts: distribution
+  gather_facts: no
+  vars_files:
+    - vars/customers.yml
+  
+  tasks:
+    - name: Create CustomerA VLANs on dist1-sw
+      ios_config:
+        lines:
+          - vlan 100
+          - name CustomerA-WEB-SERVERS
+          - vlan 101
+          - name CustomerA-APP-SERVERS
+          - vlan 102
+          - name CustomerA-DB-SERVERS
+          - vlan 109
+          - name CustomerA-USERS
+      when: inventory_hostname == 'dist1-sw'
+
+    - name: Create CustomerB VLANs on dist1-sw
+      ios_config:
+        lines:
+          - vlan 200
+          - name CustomerB-WEB-SERVERS
+          - vlan 201
+          - name CustomerB-APP-SERVERS
+          - vlan 202
+          - name CustomerB-DB-SERVERS
+          - vlan 209
+          - name CustomerB-USERS
+      when: inventory_hostname == 'dist1-sw'
+
+    - name: Create CustomerC VLANs on dist2-sw
+      ios_config:
+        lines:
+          - vlan 300
+          - name CustomerC-WEB-SERVERS
+          - vlan 301
+          - name CustomerC-APP-SERVERS
+          - vlan 302
+          - name CustomerC-DB-SERVERS
+          - vlan 309
+          - name CustomerC-USERS
+      when: inventory_hostname == 'dist2-sw'
+
+    - name: Configure CustomerA SVI Interfaces on dist1-sw
+      ios_config:
+        lines:
+          - interface vlan 100
+          - description CustomerA Web Servers Gateway
+          - ip address 10.100.10.1 255.255.255.0
+          - no shutdown
+          - interface vlan 101
+          - description CustomerA App Servers Gateway
+          - ip address 10.100.20.1 255.255.255.0
+          - no shutdown
+          - interface vlan 102
+          - description CustomerA DB Servers Gateway
+          - ip address 10.100.30.1 255.255.255.0
+          - no shutdown
+          - interface vlan 109
+          - description CustomerA Users Gateway
+          - ip address 10.100.99.1 255.255.255.0
+          - no shutdown
+      when: inventory_hostname == 'dist1-sw'
+
+    - name: Configure CustomerB SVI Interfaces on dist1-sw
+      ios_config:
+        lines:
+          - interface vlan 200
+          - description CustomerB Web Servers Gateway
+          - ip address 10.200.10.1 255.255.255.0
+          - no shutdown
+          - interface vlan 201
+          - description CustomerB App Servers Gateway
+          - ip address 10.200.20.1 255.255.255.0
+          - no shutdown
+          - interface vlan 202
+          - description CustomerB DB Servers Gateway
+          - ip address 10.200.30.1 255.255.255.0
+          - no shutdown
+          - interface vlan 209
+          - description CustomerB Users Gateway
+          - ip address 10.200.99.1 255.255.255.0
+          - no shutdown
+      when: inventory_hostname == 'dist1-sw'
+
+    - name: Configure CustomerC SVI Interfaces on dist2-sw
+      ios_config:
+        lines:
+          - interface vlan 300
+          - description CustomerC Web Servers Gateway
+          - ip address 10.300.10.1 255.255.255.0
+          - no shutdown
+          - interface vlan 301
+          - description CustomerC App Servers Gateway
+
