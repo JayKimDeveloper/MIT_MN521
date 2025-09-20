@@ -1,5 +1,3 @@
----
-# distribution.yml - ios_config 모듈 사용
 - name: Configure Distribution Switches
   hosts: distribution
   gather_facts: no
@@ -7,94 +5,105 @@
     - vars/customers.yml
   
   tasks:
-    - name: Create CustomerA VLANs on dist1-sw
-      ios_config:
-        lines:
-          - vlan 100
-          - name CustomerA-WEB-SERVERS
-          - vlan 101
-          - name CustomerA-APP-SERVERS
-          - vlan 102
-          - name CustomerA-DB-SERVERS
-          - vlan 109
-          - name CustomerA-USERS
-      when: inventory_hostname == 'dist1-sw'
+    - name: Create Customer VLANs
+      raw: |
+        configure terminal
+        {% for customer in customers %}
+        {% if (customer.location == 'dist1' and inventory_hostname == 'dist1-sw') or (customer.location == 'dist2' and inventory_hostname == 'dist2-sw') %}
+        ! {{ customer.name }} VLANs
+        vlan {{ customer.vlans.web }}
+        name {{ customer.name }}-WEB-SERVERS
+        vlan {{ customer.vlans.app }}
+        name {{ customer.name }}-APP-SERVERS  
+        vlan {{ customer.vlans.db }}
+        name {{ customer.name }}-DB-SERVERS
+        vlan {{ customer.vlans.users }}
+        name {{ customer.name }}-USERS
+        {% endif %}
+        {% endfor %}
+        exit
+        write memory
 
-    - name: Create CustomerB VLANs on dist1-sw
-      ios_config:
-        lines:
-          - vlan 200
-          - name CustomerB-WEB-SERVERS
-          - vlan 201
-          - name CustomerB-APP-SERVERS
-          - vlan 202
-          - name CustomerB-DB-SERVERS
-          - vlan 209
-          - name CustomerB-USERS
-      when: inventory_hostname == 'dist1-sw'
+    - name: Configure SVI Gateway Interfaces
+      raw: |
+        configure terminal
+        {% for customer in customers %}
+        {% if (customer.location == 'dist1' and inventory_hostname == 'dist1-sw') or (customer.location == 'dist2' and inventory_hostname == 'dist2-sw') %}
+        ! {{ customer.name }} Server Gateways
+        interface vlan {{ customer.vlans.web }}
+        description "{{ customer.name }} Web Servers Gateway"
+        ip address {{ customer.networks.web | regex_replace('/24$', '') | regex_replace('\\.0$', '.1') }} 255.255.255.0
+        no shutdown
+        
+        interface vlan {{ customer.vlans.app }}
+        description "{{ customer.name }} App Servers Gateway"
+        ip address {{ customer.networks.app | regex_replace('/24$', '') | regex_replace('\\.0$', '.1') }} 255.255.255.0
+        no shutdown
+        
+        interface vlan {{ customer.vlans.db }}
+        description "{{ customer.name }} DB Servers Gateway"
+        ip address {{ customer.networks.db | regex_replace('/24$', '') | regex_replace('\\.0$', '.1') }} 255.255.255.0
+        no shutdown
+        
+        ! {{ customer.name }} User Gateway
+        interface vlan {{ customer.vlans.users }}
+        description "{{ customer.name }} Users Gateway"
+        ip address {{ customer.networks.users | regex_replace('/24$', '') | regex_replace('\\.0$', '.1') }} 255.255.255.0
+        no shutdown
+        {% endif %}
+        {% endfor %}
+        exit
+        write memory
 
-    - name: Create CustomerC VLANs on dist2-sw
-      ios_config:
-        lines:
-          - vlan 300
-          - name CustomerC-WEB-SERVERS
-          - vlan 301
-          - name CustomerC-APP-SERVERS
-          - vlan 302
-          - name CustomerC-DB-SERVERS
-          - vlan 309
-          - name CustomerC-USERS
-      when: inventory_hostname == 'dist2-sw'
+    - name: Configure Trunk Ports to Access Switches
+      raw: |
+        configure terminal
+        {% if inventory_hostname == 'dist1-sw' %}
+        ! Access Switch 연결 Trunk 설정
+        interface FastEthernet0/1
+        description "Trunk to access-sw1 (servers)"
+        switchport mode trunk
+        switchport trunk allowed vlan 100,101,102
+        no shutdown
+        
+        interface FastEthernet0/2  
+        description "Trunk to access-sw2 (users)"
+        switchport mode trunk
+        switchport trunk allowed vlan 200,201,202
+        no shutdown
+        {% elif inventory_hostname == 'dist2-sw' %}
+        interface FastEthernet0/1
+        description "Trunk to access-sw3 (servers)"
+        switchport mode trunk
+        switchport trunk allowed vlan 300,301,302
+        no shutdown
+        
+        interface FastEthernet0/2  
+        description "Trunk to access-sw4 (users)"
+        switchport mode trunk
+        switchport trunk allowed vlan 309
+        no shutdown
+        {% endif %}
+        exit
+        write memory
 
-    - name: Configure CustomerA SVI Interfaces on dist1-sw
-      ios_config:
-        lines:
-          - interface vlan 100
-          - description CustomerA Web Servers Gateway
-          - ip address 10.100.10.1 255.255.255.0
-          - no shutdown
-          - interface vlan 101
-          - description CustomerA App Servers Gateway
-          - ip address 10.100.20.1 255.255.255.0
-          - no shutdown
-          - interface vlan 102
-          - description CustomerA DB Servers Gateway
-          - ip address 10.100.30.1 255.255.255.0
-          - no shutdown
-          - interface vlan 109
-          - description CustomerA Users Gateway
-          - ip address 10.100.99.1 255.255.255.0
-          - no shutdown
-      when: inventory_hostname == 'dist1-sw'
+    - name: Enable IP Routing
+      raw: |
+        configure terminal
+        ip routing
+        exit
+        write memory
 
-    - name: Configure CustomerB SVI Interfaces on dist1-sw
-      ios_config:
-        lines:
-          - interface vlan 200
-          - description CustomerB Web Servers Gateway
-          - ip address 10.200.10.1 255.255.255.0
-          - no shutdown
-          - interface vlan 201
-          - description CustomerB App Servers Gateway
-          - ip address 10.200.20.1 255.255.255.0
-          - no shutdown
-          - interface vlan 202
-          - description CustomerB DB Servers Gateway
-          - ip address 10.200.30.1 255.255.255.0
-          - no shutdown
-          - interface vlan 209
-          - description CustomerB Users Gateway
-          - ip address 10.200.99.1 255.255.255.0
-          - no shutdown
-      when: inventory_hostname == 'dist1-sw'
-
-    - name: Configure CustomerC SVI Interfaces on dist2-sw
-      ios_config:
-        lines:
-          - interface vlan 300
-          - description CustomerC Web Servers Gateway
-          - ip address 10.300.10.1 255.255.255.0
-          - no shutdown
-          - interface vlan 301
-          - description CustomerC App Servers Gateway
-
+    - name: Display Distribution Configuration
+      debug:
+        msg: |
+          ===== {{ inventory_hostname }} 설정 완료 =====
+          {% for customer in customers %}
+          {% if (customer.location == 'dist1' and inventory_hostname == 'dist1-sw') or (customer.location == 'dist2' and inventory_hostname == 'dist2-sw') %}
+          {{ customer.name }}:
+          - Web VLAN: {{ customer.vlans.web }} ({{ customer.networks.web }})
+          - App VLAN: {{ customer.vlans.app }} ({{ customer.networks.app }})
+          - DB VLAN: {{ customer.vlans.db }} ({{ customer.networks.db }})
+          - Users VLAN: {{ customer.vlans.users }} ({{ customer.networks.users }})
+          {% endif %}
+          {% endfor %}

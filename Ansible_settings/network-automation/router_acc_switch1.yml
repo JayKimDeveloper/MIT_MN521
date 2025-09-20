@@ -1,0 +1,77 @@
+- name: Configure Router-based Switch Features
+  hosts: access
+  gather_facts: no
+  vars_files:
+    - vars/customers.yml
+  
+  tasks:
+    - name: Enable switching on router interfaces (access-sw1)
+      raw: |
+        configure terminal
+        ! Enable VLAN database first
+        vlan database
+        vlan 100 name CustomerA-WEB-SERVERS
+        vlan 101 name CustomerA-APP-SERVERS
+        vlan 102 name CustomerA-DB-SERVERS
+        vlan 200 name CustomerB-WEB-SERVERS
+        vlan 201 name CustomerB-APP-SERVERS
+        vlan 202 name CustomerB-DB-SERVERS
+        exit
+        
+        ! Configure interfaces as switchports
+        interface FastEthernet1/0
+        switchport
+        switchport mode access
+        switchport access vlan 100
+        no shutdown
+        
+        interface FastEthernet1/1
+        switchport
+        switchport mode access
+        switchport access vlan 100
+        no shutdown
+        
+        interface FastEthernet1/2
+        switchport
+        switchport mode access
+        switchport access vlan 100
+        no shutdown
+        
+        interface FastEthernet1/3
+        switchport
+        switchport mode access
+        switchport access vlan 101
+        no shutdown
+        
+        interface FastEthernet1/4
+        switchport
+        switchport mode access
+        switchport access vlan 101
+        no shutdown
+        
+        interface FastEthernet1/5
+        switchport
+        switchport mode access
+        switchport access vlan 101
+        no shutdown
+        
+        ! Trunk interface
+        interface FastEthernet1/14
+        switchport
+        switchport mode trunk
+        switchport trunk allowed vlan 100,101,102,200,201,202
+        no shutdown
+        
+        exit
+        write memory
+      when: inventory_hostname == 'access-sw1'
+
+    - name: Verify switchport configuration
+      raw: show interfaces switchport
+      register: switchport_status
+      
+    - name: Display switchport status
+      debug:
+        msg: |
+          ===== {{ inventory_hostname }} Switchport Status =====
+          {{ switchport_status.stdout }}

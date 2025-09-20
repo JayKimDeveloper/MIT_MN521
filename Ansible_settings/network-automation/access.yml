@@ -1,119 +1,192 @@
----
-# 간단한 access.yml - 확장 가능한 구조
-- name: Configure Access Switches - Simple Structure
+- name: Configure Access Switches (Corrected Interface Numbers)
   hosts: access
   gather_facts: no
   vars_files:
     - vars/customers.yml
   
   tasks:
-    - name: Create VLANs
+    - name: Clear existing VLAN assignments
       raw: |
         configure terminal
-        {% for customer in customers %}
-        {% set server_switch = switch_mapping[customer.location].servers %}
-        {% set user_switch = switch_mapping[customer.location].users %}
+        default interface range FastEthernet1/0-15
+        exit
+        write memory
+
+    - name: Configure Server Access Switch (access-sw1)
+      raw: |
+        configure terminal
+        ! Create VLANs first
+        vlan 100
+        name CustomerA-WEB-SERVERS
+        vlan 101
+        name CustomerA-APP-SERVERS
+        vlan 102
+        name CustomerA-DB-SERVERS
+        vlan 200
+        name CustomerB-WEB-SERVERS
+        vlan 201
+        name CustomerB-APP-SERVERS
+        vlan 202
+        name CustomerB-DB-SERVERS
         
-        {% if inventory_hostname == server_switch %}
-        ! {{ customer.name }} Server VLANs
-        vlan {{ customer.vlans.web }}
-        name {{ customer.name }}-WEB-SERVERS
-        vlan {{ customer.vlans.app }}
-        name {{ customer.name }}-APP-SERVERS  
-        vlan {{ customer.vlans.db }}
-        name {{ customer.name }}-DB-SERVERS
-        {% endif %}
+        ! Configure access ports
+        interface range FastEthernet1/0-2
+        description "CustomerA Web Servers"
+        switchport mode access
+        switchport access vlan 100
+        spanning-tree portfast
+        no shutdown
         
-        {% if inventory_hostname == user_switch %}
-        ! {{ customer.name }} User VLAN
-        vlan {{ customer.vlans.users }}
-        name {{ customer.name }}-USERS
-        {% endif %}
-        {% endfor %}
-        exit
-        write memory
-
-    - name: Configure Server Ports
-      raw: |
-        configure terminal
-        {% for customer in customers %}
-        {% set server_switch = switch_mapping[customer.location].servers %}
-        {% if inventory_hostname == server_switch %}
-        {% for server in customer.servers %}
-        ! {{ customer.name }} {{ server.name }} - {{ server.description }}
-        interface FastEthernet{{ server.port }}
-        description "{{ customer.name }} {{ server.description }} - {{ server.name }} ({{ server.person | default('Server') }})"
+        interface range FastEthernet1/3-5
+        description "CustomerA App Servers"
         switchport mode access
-        switchport access vlan {{ customer.vlans[server.type] }}
+        switchport access vlan 101
+        spanning-tree portfast
         no shutdown
-        {% endfor %}
-        {% endif %}
-        {% endfor %}
-        exit
-        write memory
-      when: inventory_hostname in ['access-sw1', 'access-sw3']
-
-    - name: Configure User Ports  
-      raw: |
-        configure terminal
-        {% for customer in customers %}
-        {% set user_switch = switch_mapping[customer.location].users %}
-        {% if inventory_hostname == user_switch %}
-        {% for user in customer.users %}
-        ! {{ customer.name }} {{ user.name }} - {{ user.person }}
-        interface FastEthernet{{ user.port }}
-        description "{{ customer.name }} {{ user.person }} ({{ user.role }}) - {{ user.name }}"
+        
+        interface range FastEthernet1/6-8
+        description "CustomerA DB Servers"
         switchport mode access
-        switchport access vlan {{ customer.vlans.users }}
+        switchport access vlan 102
+        spanning-tree portfast
         no shutdown
-        {% endfor %}
-        {% endif %}
-        {% endfor %}
-        exit
-        write memory
-      when: inventory_hostname in ['access-sw2', 'access-sw4']
-
-    - name: Configure Trunk Ports
-      raw: |
-        configure terminal
-        interface FastEthernet0/1
-        description "Trunk to Distribution Switch"
+        
+        interface range FastEthernet1/9-11
+        description "CustomerB Web Servers"
+        switchport mode access
+        switchport access vlan 200
+        spanning-tree portfast
+        no shutdown
+        
+        interface range FastEthernet1/12-13
+        description "CustomerB App/DB Servers"
+        switchport mode access
+        switchport access vlan 201
+        spanning-tree portfast
+        no shutdown
+        
+        ! Trunk to distribution switch
+        interface FastEthernet1/14
+        description "Trunk to dist1-sw"
         switchport mode trunk
-        {% for customer in customers %}
-        {% set server_switch = switch_mapping[customer.location].servers %}
-        {% set user_switch = switch_mapping[customer.location].users %}
-        
-        {% if inventory_hostname == server_switch %}
-        switchport trunk allowed vlan add {{ customer.vlans.web }},{{ customer.vlans.app }},{{ customer.vlans.db }}
-        {% endif %}
-        
-        {% if inventory_hostname == user_switch %}
-        switchport trunk allowed vlan add {{ customer.vlans.users }}
-        {% endif %}
-        {% endfor %}
+        switchport trunk allowed vlan 100,101,102,200,201,202
         no shutdown
+        
         exit
         write memory
+      when: inventory_hostname == 'access-sw1'
 
-    - name: Show Configuration Summary
+    - name: Configure User Access Switch (access-sw2)
+      raw: |
+        configure terminal
+        ! Create VLANs
+        vlan 109
+        name CustomerA-USERS
+        vlan 209
+        name CustomerB-USERS
+        
+        ! Configure access ports
+        interface range FastEthernet1/0-6
+        description "CustomerA Users"
+        switchport mode access
+        switchport access vlan 109
+        spanning-tree portfast
+        no shutdown
+        
+        interface range FastEthernet1/7-13
+        description "CustomerB Users"
+        switchport mode access
+        switchport access vlan 209
+        spanning-tree portfast
+        no shutdown
+        
+        ! Trunk to distribution switch
+        interface FastEthernet1/14
+        description "Trunk to dist1-sw"
+        switchport mode trunk
+        switchport trunk allowed vlan 109,209
+        no shutdown
+        
+        exit
+        write memory
+      when: inventory_hostname == 'access-sw2'
+
+    - name: Configure Server Access Switch (access-sw3)
+      raw: |
+        configure terminal
+        ! Create VLANs
+        vlan 300
+        name CustomerC-WEB-SERVERS
+        vlan 301
+        name CustomerC-APP-SERVERS
+        vlan 302
+        name CustomerC-DB-SERVERS
+        
+        ! Configure access ports
+        interface range FastEthernet1/0-2
+        description "CustomerC Web Servers"
+        switchport mode access
+        switchport access vlan 300
+        spanning-tree portfast
+        no shutdown
+        
+        interface range FastEthernet1/3-5
+        description "CustomerC App Servers"
+        switchport mode access
+        switchport access vlan 301
+        spanning-tree portfast
+        no shutdown
+        
+        interface range FastEthernet1/6-8
+        description "CustomerC DB Servers"
+        switchport mode access
+        switchport access vlan 302
+        spanning-tree portfast
+        no shutdown
+        
+        ! Trunk to distribution switch
+        interface FastEthernet1/14
+        description "Trunk to dist2-sw"
+        switchport mode trunk
+        switchport trunk allowed vlan 300,301,302
+        no shutdown
+        
+        exit
+        write memory
+      when: inventory_hostname == 'access-sw3'
+
+    - name: Configure User Access Switch (access-sw4)
+      raw: |
+        configure terminal
+        ! Create VLANs
+        vlan 309
+        name CustomerC-USERS
+        
+        ! Configure access ports
+        interface range FastEthernet1/0-13
+        description "CustomerC Users"
+        switchport mode access
+        switchport access vlan 309
+        spanning-tree portfast
+        no shutdown
+        
+        ! Trunk to distribution switch
+        interface FastEthernet1/14
+        description "Trunk to dist2-sw"
+        switchport mode trunk
+        switchport trunk allowed vlan 309
+        no shutdown
+        
+        exit
+        write memory
+      when: inventory_hostname == 'access-sw4'
+
+    - name: Verify Configuration Applied
+      raw: show interfaces status
+      register: interface_status
+      
+    - name: Display Interface Status
       debug:
         msg: |
-          ===== {{ inventory_hostname }} 설정 완료 =====
-          {% for customer in customers %}
-          {% set server_switch = switch_mapping[customer.location].servers %}
-          {% set user_switch = switch_mapping[customer.location].users %}
-          
-          {% if inventory_hostname == server_switch %}
-          {{ customer.name }} 서버들:
-          {% for server in customer.servers %}
-          - {{ server.name }}: {{ server.description }} (포트 {{ server.port }})
-          {% endfor %}
-          {% endif %}
-          
-          {% if inventory_hostname == user_switch %}
-          {{ customer.name }} 직원들:
-          {% for user in customer.users %}
-          - {{ user.name }}: {{ user.person }} ({{ user.role }}, 포트 {{ user.port }})
-          {% endfor %}
-          {% endif %}
-          {% endfor %}
+          ===== {{ inventory_hostname }} Interface Status =====
+          {{ interface_status.stdout }}

@@ -1,4 +1,3 @@
-# vars/customers.yml 
 ---
 customers:
   - name: "CustomerA"
@@ -14,23 +13,23 @@ customers:
       db: "10.100.30.0/24" 
       users: "10.100.99.0/24"
     
-    # 서버 정보 - 필요한 만큼 추가
+    # Server information - add as needed
     servers:
       - { name: "PC1", port: "1/0", type: "web", description: "Web Server 1" }
       - { name: "PC2", port: "1/1", type: "app", description: "App Server 1" }
       - { name: "PC3", port: "1/2", type: "db", description: "DB Server 1" }
-      # 새 서버 추가 시 여기에 추가
+      # Add new servers here
       # - { name: "PC19", port: "1/6", type: "web", description: "Web Server 2" }
       # - { name: "PC20", port: "1/7", type: "app", description: "App Server 2" }
     
-    # 사용자/직원 정보 - 필요한 만큼 추가  
+    # User/Employee information - add as needed  
     users:
-      - { name: "PC7", port: "1/0", person: "김철수", role: "일반사용자", description: "개발팀" }
-      - { name: "PC8", port: "1/1", person: "이영희", role: "일반사용자", description: "디자인팀" }
-      - { name: "PC9", port: "1/2", person: "박관리", role: "관리자", description: "IT팀장" }
-      # 새 직원 추가 시 여기에 추가
-      # - { name: "PC21", port: "1/6", person: "최신입", role: "일반사용자", description: "마케팅팀" }
-      # - { name: "PC22", port: "1/7", person: "정대리", role: "일반사용자", description: "영업팀" }
+      - { name: "PC7", port: "1/0", person: "John Kim", role: "end-user", description: "Development Team" }
+      - { name: "PC8", port: "1/1", person: "Sarah Lee", role: "end-user", description: "Design Team" }
+      - { name: "PC9", port: "1/2", person: "Mike Park", role: "administrator", description: "IT Manager" }
+      # Add new employees here
+      # - { name: "PC21", port: "1/6", person: "Alex Choi", role: "end-user", description: "Marketing Team" }
+      # - { name: "PC22", port: "1/7", person: "Lisa Jung", role: "end-user", description: "Sales Team" }
 
   - name: "CustomerB"
     location: "dist1" 
@@ -51,9 +50,9 @@ customers:
       - { name: "PC6", port: "1/5", type: "db", description: "DB Server 1" }
     
     users:
-      - { name: "PC10", port: "1/3", person: "홍길동", role: "일반사용자", description: "회계팀" }
-      - { name: "PC11", port: "1/4", person: "강감찬", role: "일반사용자", description: "인사팀" }  
-      - { name: "PC12", port: "1/5", person: "이순신", role: "관리자", description: "부서장" }
+      - { name: "PC10", port: "1/3", person: "David Hong", role: "end-user", description: "Accounting Team" }
+      - { name: "PC11", port: "1/4", person: "Emma Kang", role: "end-user", description: "HR Team" }  
+      - { name: "PC12", port: "1/5", person: "Steve Lee", role: "administrator", description: "Department Head" }
 
   - name: "CustomerC"
     location: "dist2"
@@ -74,11 +73,11 @@ customers:
       - { name: "PC15", port: "1/2", type: "db", description: "DB Server 1" }
     
     users:
-      - { name: "PC16", port: "1/0", person: "윤사원", role: "일반사용자", description: "기획팀" }
-      - { name: "PC17", port: "1/1", person: "조대리", role: "일반사용자", description: "운영팀" }
-      - { name: "PC18", port: "1/2", person: "임관리", role: "관리자", description: "관리자" }
+      - { name: "PC16", port: "1/0", person: "Grace Yoon", role: "end-user", description: "Planning Team" }
+      - { name: "PC17", port: "1/1", person: "Tom Cho", role: "end-user", description: "Operations Team" }
+      - { name: "PC18", port: "1/2", person: "Amy Lim", role: "administrator", description: "Administrator" }
 
-# 스위치 매핑 (변경하지 않음)
+# Switch mapping (do not change)
 switch_mapping:
   dist1:
     servers: "access-sw1"
@@ -87,20 +86,3 @@ switch_mapping:
     servers: "access-sw3" 
     users: "access-sw4"
 
-# 새 고객 추가 템플릿:
-# - name: "CustomerD"
-#   location: "dist1"  # 또는 "dist2"
-#   vlans:
-#     web: 400
-#     app: 401
-#     db: 402
-#     users: 409
-#   networks:
-#     web: "10.400.10.0/24"
-#     app: "10.400.20.0/24"
-#     db: "10.400.30.0/24"
-#     users: "10.400.99.0/24"
-#   servers:
-#     - { name: "PC24", port: "1/10", type: "web", description: "Web Server 1" }
-#   users:
-#     - { name: "PC25", port: "1/11", person: "신입사원", role: "일반사용자", description: "신입" }
