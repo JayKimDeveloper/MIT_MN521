@@ -1,0 +1,275 @@
+
+# ===================================================================
+# 시나리오 1 롤백 플레이북 (Rollback Customer A Expansion)
+# 파일명: scenario1-rollback.yml
+#
+# 목적: 시나리오 1에서 추가된 Customer A 확장 설정을 제거
+# 데모 준비를 위한 환경 정리
+# ===================================================================
+---
+- name: "시나리오 1 롤백 - 초기화 및 변수 확인"
+  hosts: localhost
+  gather_facts: true
+  vars:
+    # 롤백할 설정 정보
+    rollback:
+      customer_id: "A"
+      customer_name: "Customer A"
+      vlan_to_remove: 105
+      network_to_remove: "10.100.50.0"
+      netmask_to_remove: "255.255.255.0"
+      target_dist: "dist2-sw"
+      target_access: "access-sw4"
+      core_next_hop: "10.0.2.2"
+      dist_interface: "FastEthernet1/0"
+
+    log_prefix: "[ROLLBACK]"
+
+  tasks:
+    - name: "📋 시나리오 1 롤백 시작"
+      debug:
+        msg: |
+          ================================================
+          🔄 시나리오 1 롤백: Customer A 확장 설정 제거
+          ================================================
+          제거할 설정:
+          - 고객 ID: {{ rollback.customer_id }}
+          - VLAN: {{ rollback.vlan_to_remove }}
+          - 네트워크: {{ rollback.network_to_remove }}/24
+          - 대상 장비: {{ rollback.target_dist }}
+          ================================================
+          ⚠️  데모 준비를 위한 환경 정리
+          ================================================
+
+- name: "Core Router - Customer A 확장 라우팅 제거"
+  hosts: core
+  gather_facts: false
+  vars:
+    rollback: "{{ hostvars['localhost']['rollback'] }}"
+    log_prefix: "{{ hostvars['localhost']['log_prefix'] }}"
+
+  tasks:
+    - name: "{{ log_prefix }} Core Router 현재 라우팅 확인"
+      ios_command:
+        commands:
+          - "show ip route {{ rollback.network_to_remove }}"
+      register: current_route
+      ignore_errors: true
+
+    - name: "{{ log_prefix }} 기존 라우팅 상태"
+      debug:
+        msg: |
+          현재 라우팅 상태:
+          {{ current_route.stdout[0] if current_route is succeeded else '라우팅 없음' }}
+
+    - name: "{{ log_prefix }} Customer A 확장 라우팅 제거"
+      ios_config:
+        lines:
+          - "no ip route {{ rollback.network_to_remove }} {{ rollback.netmask_to_remove }} {{ rollback.core_next_hop }}"
+        save_when: modified
+      register: core_removal_result
+      ignore_errors: true
+
+    - name: "{{ log_prefix }} Core Router 라우팅 제거 결과"
+      debug:
+        msg: |
+          {{ '✅ Core Router 라우팅 제거 완료' if core_removal_result is succeeded else '⚠️  라우팅이 존재하지 않거나 제거 실패' }}
+          - 제거된 라우팅: {{ rollback.network_to_remove }}/24 → {{ rollback.core_next_hop }}
+
+- name: "Distribution Switch - Customer A VLAN 서브인터페이스 제거"
+  hosts: distribution
+  gather_facts: false
+  vars:
+    rollback: "{{ hostvars['localhost']['rollback'] }}"
+    log_prefix: "{{ hostvars['localhost']['log_prefix'] }}"
+
+  tasks:
+    - name: "{{ log_prefix }} {{ rollback.target_dist }} 현재 서브인터페이스 확인"
+      ios_command:
+        commands:
+          - "show interface {{ rollback.dist_interface }}.{{ rollback.vlan_to_remove }}"
+      register: current_subint
+      ignore_errors: true
+      when: inventory_hostname == rollback.target_dist
+
+    - name: "{{ log_prefix }} 서브인터페이스 존재 여부 확인"
+      debug:
+        msg: |
+          서브인터페이스 상태:
+          {{ '존재함 - 제거 진행' if current_subint is succeeded else '존재하지 않음' }}
+      when: inventory_hostname == rollback.target_dist
+
+    - name: "{{ log_prefix }} Customer A VLAN 서브인터페이스 제거"
+      ios_config:
+        lines:
+          - "no interface {{ rollback.dist_interface }}.{{ rollback.vlan_to_remove }}"
+        save_when: modified
+      when: inventory_hostname == rollback.target_dist
+      register: dist_removal_result
+      ignore_errors: true
+
+    - name: "{{ log_prefix }} Distribution 스위치 제거 결과"
+      debug:
+        msg: |
+          {{ '✅ ' + rollback.target_dist + ' VLAN ' + rollback.vlan_to_remove|string + ' 서브인터페이스 제거 완료' if dist_removal_result is succeeded else '⚠️  서브인터페이스 제거 실패 또는 존재하지 않음' }}
+      when: inventory_hostname == rollback.target_dist
+
+- name: "Access Switch 수동 정리 가이드 생성"
+  hosts: localhost
+  gather_facts: true
+  vars:
+    rollback: "{{ hostvars['localhost']['rollback'] }}"
+    log_prefix: "{{ hostvars['localhost']['log_prefix'] }}"
+
+  tasks:
+    - name: "logs 디렉토리 생성"
+      file:
+        path: "./logs"
+        state: directory
+
+    - name: "{{ log_prefix }} Access Switch 정리 스크립트 생성"
+      copy:
+        content: |
+          #!/bin/bash
+          # {{ rollback.target_access }} 수동 정리 스크립트
+          # {{ rollback.customer_name }} 확장 설정 제거
+          # 생성일: {{ ansible_date_time.iso8601 }}
+
+          echo "================================================"
+          echo "{{ rollback.target_access }} 수동 정리 가이드"
+          echo "================================================"
+          echo ""
+          echo "⚠️  이 스크립트는 가이드용입니다. Access 스위치에 콘솔로 접속하여 수동 실행하세요."
+          echo ""
+          echo "1. {{ rollback.target_access }}에 콘솔 접속"
+          echo ""
+          echo "2. VLAN {{ rollback.vlan_to_remove }} 관련 설정 확인:"
+          echo "Switch# show vlan brief"
+          echo "Switch# show interface status | include {{ rollback.vlan_to_remove }}"
+          echo ""
+          echo "3. 포트에서 VLAN 제거 (필요시):"
+          echo "Switch> enable"
+          echo "Switch# configure terminal"
+          echo "Switch(config)# interface range fastEthernet0/1-2"
+          echo "Switch(config-if-range)# switchport access vlan 1"
+          echo "Switch(config-if-range)# exit"
+          echo ""
+          echo "4. VLAN {{ rollback.vlan_to_remove }} 삭제:"
+          echo "Switch(config)# no vlan {{ rollback.vlan_to_remove }}"
+          echo "Switch(config)# exit"
+          echo "Switch# write memory"
+          echo ""
+          echo "5. 설정 확인:"
+          echo "Switch# show vlan brief"
+          echo ""
+          echo "================================================"
+        dest: "./logs/{{ rollback.target_access }}_cleanup_vlan{{ rollback.vlan_to_remove }}.sh"
+        mode: '0755'
+
+    - name: "{{ log_prefix }} VPCS 정리 스크립트 생성"
+      copy:
+        content: |
+          #!/bin/bash
+          # VPCS 설정 정리 스크립트
+          # {{ rollback.customer_name }} 확장 설정 제거
+          # 생성일: {{ ansible_date_time.iso8601 }}
+
+          echo "================================================"
+          echo "VPCS 수동 정리 가이드"
+          echo "================================================"
+          echo ""
+          echo "{{ rollback.target_access }}에 연결된 VPCS들의 설정 초기화:"
+          echo ""
+          echo "각 VPCS에서 다음 명령 실행:"
+          echo ""
+          echo "VPCS-A4 정리:"
+          echo "VPCS> ip dhcp"
+          echo "VPCS> save"
+          echo ""
+          echo "VPCS-A5 정리:"
+          echo "VPCS> ip dhcp"
+          echo "VPCS> save"
+          echo ""
+          echo "또는 IP 완전 제거:"
+          echo "VPCS> clear ip"
+          echo "VPCS> save"
+          echo ""
+          echo "설정 확인:"
+          echo "VPCS> show ip"
+          echo ""
+          echo "================================================"
+        dest: "./logs/vpcs_cleanup_{{ rollback.customer_id }}_vlan{{ rollback.vlan_to_remove }}.sh"
+        mode: '0755'
+
+- name: "연결성 확인 및 정리 검증"
+  hosts: localhost
+  gather_facts: false
+  vars:
+    rollback: "{{ hostvars['localhost']['rollback'] }}"
+    log_prefix: "{{ hostvars['localhost']['log_prefix'] }}"
+
+  tasks:
+    - name: "{{ log_prefix }} Core에서 제거된 네트워크 접근 테스트"
+      ios_command:
+        commands:
+          - "ping {{ rollback.network_to_remove }}"
+      register: ping_test
+      delegate_to: "{{ groups['core'][0] }}"
+      ignore_errors: true
+
+    - name: "{{ log_prefix }} 네트워크 제거 검증 결과"
+      debug:
+        msg: |
+          🔍 네트워크 제거 검증:
+          {{ '✅ 네트워크 제거 확인됨 (ping 실패 정상)' if ping_test is failed else '⚠️  네트워크가 아직 접근 가능함' }}
+
+- name: "시나리오 1 롤백 완료"
+  hosts: localhost
+  gather_facts: false
+  vars:
+    rollback: "{{ hostvars['localhost']['rollback'] }}"
+
+  tasks:
+    - name: "🎉 시나리오 1 롤백 완료"
+      debug:
+        msg: |
+          ================================================
+          ✅ 시나리오 1 롤백 완료: Customer A 확장 설정 제거
+          ================================================
+
+          자동 제거 완료:
+          - ✅ Core Router: {{ rollback.network_to_remove }}/24 라우팅 제거
+          - ✅ {{ rollback.target_dist }}: VLAN {{ rollback.vlan_to_remove }} 서브인터페이스 제거
+
+          📋 수동 정리 스크립트 생성 완료:
+          ================================================
+          - ./logs/{{ rollback.target_access }}_cleanup_vlan{{ rollback.vlan_to_remove }}.sh
+          - ./logs/vpcs_cleanup_{{ rollback.customer_id }}_vlan{{ rollback.vlan_to_remove }}.sh
+
+          📝 다음 수동 작업:
+          ================================================
+          1. {{ rollback.target_access }} 콘솔 접속 후 정리 스크립트 참조
+          2. VLAN {{ rollback.vlan_to_remove }} 제거 및 포트 초기화
+          3. VPCS 설정 초기화 (스크립트 참조)
+
+          🎭 데모 준비 완료: 깨끗한 환경에서 시나리오 1 재실행 가능
+          ================================================
+
+    - name: "롤백 완료 정보 저장"
+      copy:
+        content: |
+          # Customer A 확장 롤백 완료 정보
+          # 생성일: {{ ansible_date_time.iso8601 }}
+
+          롤백 정보:
+            고객 ID: {{ rollback.customer_id }}
+            제거된 VLAN: {{ rollback.vlan_to_remove }}
+            제거된 네트워크: {{ rollback.network_to_remove }}/24
+
+          제거된 장비 설정:
+            Core Router: 라우팅 제거 완료
+            {{ rollback.target_dist }}: 서브인터페이스 제거 완료
+            {{ rollback.target_access }}: 수동 정리 필요
+
+          상태: 데모 준비 완료
+        dest: "./logs/rollback_{{ rollback.customer_id }}_vlan{{ rollback.vlan_to_remove }}_{{ ansible_date_time.epoch }}.log"

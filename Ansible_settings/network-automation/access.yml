@@ -1,21 +1,14 @@
-- name: Configure Access Switches (Corrected Interface Numbers)
+- name: Configure Access Switches - Updated Structure
   hosts: access
   gather_facts: no
   vars_files:
     - vars/customers.yml
   
   tasks:
-    - name: Clear existing VLAN assignments
+    - name: Configure Access1 (CustomerA & CustomerB Servers)
       raw: |
         configure terminal
-        default interface range FastEthernet1/0-15
-        exit
-        write memory
-
-    - name: Configure Server Access Switch (access-sw1)
-      raw: |
-        configure terminal
-        ! Create VLANs first
+        ! Create VLANs for CustomerA and CustomerB
         vlan 100
         name CustomerA-WEB-SERVERS
         vlan 101
@@ -28,165 +21,240 @@
         name CustomerB-APP-SERVERS
         vlan 202
         name CustomerB-DB-SERVERS
+        exit
         
-        ! Configure access ports
-        interface range FastEthernet1/0-2
-        description "CustomerA Web Servers"
+        ! Trunk to Distribution Switch
+        interface GigabitEthernet0/0
+        description "Trunk to dist1-sw"
+        switchport mode trunk
+        switchport trunk allowed vlan 100,101,102,200,201,202
+        no shutdown
+        
+        ! CustomerA Server Ports
+        interface GigabitEthernet0/1
+        description "CustomerA Web Server (PC1)"
         switchport mode access
         switchport access vlan 100
         spanning-tree portfast
         no shutdown
         
-        interface range FastEthernet1/3-5
-        description "CustomerA App Servers"
+        interface GigabitEthernet0/2
+        description "CustomerA App Server (PC2)"
         switchport mode access
         switchport access vlan 101
         spanning-tree portfast
         no shutdown
         
-        interface range FastEthernet1/6-8
-        description "CustomerA DB Servers"
+        interface GigabitEthernet0/3
+        description "CustomerA DB Server (PC3)"
         switchport mode access
         switchport access vlan 102
         spanning-tree portfast
         no shutdown
         
-        interface range FastEthernet1/9-11
-        description "CustomerB Web Servers"
+        ! CustomerB Server Ports
+        interface GigabitEthernet1/1
+        description "CustomerB Web Server (PC4)"
         switchport mode access
         switchport access vlan 200
         spanning-tree portfast
         no shutdown
         
-        interface range FastEthernet1/12-13
-        description "CustomerB App/DB Servers"
+        interface GigabitEthernet1/2
+        description "CustomerB App Server (PC5)"
         switchport mode access
         switchport access vlan 201
         spanning-tree portfast
         no shutdown
         
-        ! Trunk to distribution switch
-        interface FastEthernet1/14
-        description "Trunk to dist1-sw"
-        switchport mode trunk
-        switchport trunk allowed vlan 100,101,102,200,201,202
+        interface GigabitEthernet1/3
+        description "CustomerB DB Server (PC6)"
+        switchport mode access
+        switchport access vlan 202
+        spanning-tree portfast
         no shutdown
         
         exit
         write memory
       when: inventory_hostname == 'access-sw1'
 
-    - name: Configure User Access Switch (access-sw2)
+    - name: Configure Access2 (CustomerA & CustomerB Users)
       raw: |
         configure terminal
-        ! Create VLANs
+        ! Create VLANs for CustomerA and CustomerB Users
         vlan 109
         name CustomerA-USERS
         vlan 209
         name CustomerB-USERS
+        exit
         
-        ! Configure access ports
-        interface range FastEthernet1/0-6
-        description "CustomerA Users"
+        ! Trunk to Distribution Switch
+        interface GigabitEthernet0/0
+        description "Trunk to dist1-sw"
+        switchport mode trunk
+        switchport trunk allowed vlan 109,209
+        no shutdown
+        
+        ! CustomerA User Ports
+        interface GigabitEthernet0/1
+        description "CustomerA User (PC7)"
         switchport mode access
         switchport access vlan 109
         spanning-tree portfast
         no shutdown
         
-        interface range FastEthernet1/7-13
-        description "CustomerB Users"
+        interface GigabitEthernet0/2
+        description "CustomerA User (PC8)"
+        switchport mode access
+        switchport access vlan 109
+        spanning-tree portfast
+        no shutdown
+        
+        interface GigabitEthernet0/3
+        description "CustomerA User (PC9)"
+        switchport mode access
+        switchport access vlan 109
+        spanning-tree portfast
+        no shutdown
+        
+        ! CustomerB User Ports
+        interface GigabitEthernet1/1
+        description "CustomerB User (PC10)"
         switchport mode access
         switchport access vlan 209
         spanning-tree portfast
         no shutdown
         
-        ! Trunk to distribution switch
-        interface FastEthernet1/14
-        description "Trunk to dist1-sw"
-        switchport mode trunk
-        switchport trunk allowed vlan 109,209
+        interface GigabitEthernet1/2
+        description "CustomerB User (PC11)"
+        switchport mode access
+        switchport access vlan 209
+        spanning-tree portfast
+        no shutdown
+        
+        interface GigabitEthernet1/3
+        description "CustomerB User (PC12)"
+        switchport mode access
+        switchport access vlan 209
+        spanning-tree portfast
         no shutdown
         
         exit
         write memory
       when: inventory_hostname == 'access-sw2'
 
-    - name: Configure Server Access Switch (access-sw3)
+    - name: Configure Access3 (CustomerC Servers)
       raw: |
         configure terminal
-        ! Create VLANs
+        ! Create VLANs for CustomerC
         vlan 300
         name CustomerC-WEB-SERVERS
         vlan 301
         name CustomerC-APP-SERVERS
         vlan 302
         name CustomerC-DB-SERVERS
+        exit
         
-        ! Configure access ports
-        interface range FastEthernet1/0-2
-        description "CustomerC Web Servers"
+        ! Trunk to Distribution Switch
+        interface GigabitEthernet0/0
+        description "Trunk to dist2-sw"
+        switchport mode trunk
+        switchport trunk allowed vlan 300,301,302
+        no shutdown
+        
+        ! CustomerC Server Ports
+        interface GigabitEthernet0/1
+        description "CustomerC Web Server (PC13)"
         switchport mode access
         switchport access vlan 300
         spanning-tree portfast
         no shutdown
         
-        interface range FastEthernet1/3-5
-        description "CustomerC App Servers"
+        interface GigabitEthernet0/2
+        description "CustomerC App Server (PC14)"
         switchport mode access
         switchport access vlan 301
         spanning-tree portfast
         no shutdown
         
-        interface range FastEthernet1/6-8
-        description "CustomerC DB Servers"
+        interface GigabitEthernet0/3
+        description "CustomerC DB Server (PC15)"
         switchport mode access
         switchport access vlan 302
         spanning-tree portfast
-        no shutdown
-        
-        ! Trunk to distribution switch
-        interface FastEthernet1/14
-        description "Trunk to dist2-sw"
-        switchport mode trunk
-        switchport trunk allowed vlan 300,301,302
         no shutdown
         
         exit
         write memory
       when: inventory_hostname == 'access-sw3'
 
-    - name: Configure User Access Switch (access-sw4)
+    - name: Configure Access4 (CustomerC Users)
       raw: |
         configure terminal
-        ! Create VLANs
+        ! Create VLAN for CustomerC Users
         vlan 309
         name CustomerC-USERS
+        exit
         
-        ! Configure access ports
-        interface range FastEthernet1/0-13
-        description "CustomerC Users"
+        ! Trunk to Distribution Switch
+        interface GigabitEthernet0/0
+        description "Trunk to dist2-sw"
+        switchport mode trunk
+        switchport trunk allowed vlan 309
+        no shutdown
+        
+        ! CustomerC User Ports
+        interface GigabitEthernet0/1
+        description "CustomerC User (PC16)"
         switchport mode access
         switchport access vlan 309
         spanning-tree portfast
         no shutdown
         
-        ! Trunk to distribution switch
-        interface FastEthernet1/14
-        description "Trunk to dist2-sw"
-        switchport mode trunk
-        switchport trunk allowed vlan 309
+        interface GigabitEthernet0/2
+        description "CustomerC User (PC17)"
+        switchport mode access
+        switchport access vlan 309
+        spanning-tree portfast
+        no shutdown
+        
+        interface GigabitEthernet0/3
+        description "CustomerC User (PC18)"
+        switchport mode access
+        switchport access vlan 309
+        spanning-tree portfast
         no shutdown
         
         exit
         write memory
       when: inventory_hostname == 'access-sw4'
 
-    - name: Verify Configuration Applied
-      raw: show interfaces status
-      register: interface_status
-      
-    - name: Display Interface Status
+    - name: Display Access Switch Configuration Summary
       debug:
         msg: |
-          ===== {{ inventory_hostname }} Interface Status =====
-          {{ interface_status.stdout }}
+          ===== {{ inventory_hostname }} Configuration Complete =====
+          {% if inventory_hostname == 'access-sw1' %}
+          Server Switch (CustomerA & CustomerB):
+          - Trunk: g0/0 → dist1-sw
+          - CustomerA Web: g0/1 (PC1) → VLAN 100
+          - CustomerA App: g0/2 (PC2) → VLAN 101
+          - CustomerA DB: g0/3 (PC3) → VLAN 102
+          - CustomerB Web: g1/1 (PC4) → VLAN 200
+          - CustomerB App: g1/2 (PC5) → VLAN 201
+          - CustomerB DB: g1/3 (PC6) → VLAN 202
+          {% elif inventory_hostname == 'access-sw2' %}
+          User Switch (CustomerA & CustomerB):
+          - Trunk: g0/0 → dist1-sw
+          - CustomerA Users: g0/1-3 (PC7-9) → VLAN 109
+          - CustomerB Users: g1/1-3 (PC10-12) → VLAN 209
+          {% elif inventory_hostname == 'access-sw3' %}
+          Server Switch (CustomerC):
+          - Trunk: g0/0 → dist2-sw
+          - CustomerC Web: g0/1 (PC13) → VLAN 300
+          - CustomerC App: g0/2 (PC14) → VLAN 301
+          - CustomerC DB: g0/3 (PC15) → VLAN 302
+          {% elif inventory_hostname == 'access-sw4' %}
+          User Switch (CustomerC):
+          - Trunk: g0/0 → dist2-sw
+          - CustomerC Users: g0/1-3 (PC16-18) → VLAN 309
+          {% endif %}

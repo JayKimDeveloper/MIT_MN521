@@ -1,0 +1,79 @@
+---
+- name: "Deploy Base Customer VLAN Environment"
+  hosts: distribution  # dist → distribution으로 변경
+  gather_facts: no
+  vars:
+    customers:
+      - name: "Customer-A"
+        description: "E-commerce Startup"
+        location: "dist1-sw"  # dist1 → dist1-sw로 변경
+        interface: "FastEthernet0/1"
+        vlans:
+          - { id: 100, ip: "10.100.10.1", subnet: "10.100.10.0", desc: "Web Servers" }
+          - { id: 101, ip: "10.100.20.1", subnet: "10.100.20.0", desc: "API Servers" }
+          - { id: 102, ip: "10.100.30.1", subnet: "10.100.30.0", desc: "Database Servers" }
+          
+      - name: "Customer-B"
+        description: "Enterprise ERP"
+        location: "dist1-sw"  # dist1 → dist1-sw로 변경
+        interface: "FastEthernet1/1"
+        vlans:
+          - { id: 200, ip: "10.200.10.1", subnet: "10.200.10.0", desc: "ERP Application" }
+          - { id: 201, ip: "10.200.20.1", subnet: "10.200.20.0", desc: "ERP Database" }
+
+  tasks:
+    - name: "Remove existing point-to-point IP addresses"
+      raw: |
+        configure terminal
+        {% for customer in customers %}
+        {% if (customer.location == 'dist1-sw' and inventory_hostname == 'dist1-sw') %}
+        interface {{ customer.interface }}
+        no ip address
+        description "Trunk to Access Switches - {{ customer.name }}"
+        no shutdown
+        {% endif %}
+        {% endfor %}
+        exit
+        write memory
+      when: inventory_hostname == 'dist1-sw'
+        
+    - name: "Create customer VLAN subinterfaces"
+      raw: |
+        configure terminal
+        {% for customer in customers %}
+        {% if (customer.location == 'dist1-sw' and inventory_hostname == 'dist1-sw') %}
+        {% for vlan in customer.vlans %}
+        interface {{ customer.interface }}.{{ vlan.id }}
+        encapsulation dot1Q {{ vlan.id }}
+        ip address {{ vlan.ip }} 255.255.255.0
+        description "{{ customer.name }} - {{ vlan.desc }}"
+        no shutdown
+        {% endfor %}
+        {% endif %}
+        {% endfor %}
+        exit
+        write memory
+      when: inventory_hostname == 'dist1-sw'
+
+- name: "Update Core Router for Customer Networks"
+  hosts: core7200
+  gather_facts: no
+  tasks:
+    - name: "Add routing for customer networks"
+      raw: |
+        configure terminal
+        ip route 10.100.10.0 255.255.255.0 10.0.1.2
+        ip route 10.100.20.0 255.255.255.0 10.0.1.2
+        ip route 10.100.30.0 255.255.255.0 10.0.1.2
+        ip route 10.200.10.0 255.255.255.0 10.0.1.2
+        ip route 10.200.20.0 255.255.255.0 10.0.1.2
+        exit
+        write memory
+        
+    - name: "Display completion message"
+      debug:
+        msg: 
+          - "=== BASE VLAN ENVIRONMENT DEPLOYED ==="
+          - "Customer A VLANs: 100, 101, 102"
+          - "Customer B VLANs: 200, 201"
+          - "Core routing updated"

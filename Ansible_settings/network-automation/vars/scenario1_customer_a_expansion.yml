@@ -1,0 +1,15 @@
+
+---
+expansion:
+  customer_id: "A"
+  customer_name: "Customer A"
+  new_vlan_id: 105
+  new_network: "10.100.50.0"
+  new_netmask: "255.255.255.0"
+  new_network_cidr: "10.100.50.0/24"
+  new_gateway: "10.100.50.1"
+  description: "CustomerA_EventPool"  # 공백 제거
+  target_dist: "dist2-sw"
+  target_access: "access-sw4"
+  core_next_hop: "10.0.2.2"
+  dist_interface: "FastEthernet1/0"
