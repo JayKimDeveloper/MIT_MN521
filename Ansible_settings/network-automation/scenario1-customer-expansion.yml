@@ -1,51 +1,51 @@
 # ===================================================================
-# 시나리오 1: 고객 확장 플레이북 (Customer Expansion) - Access 스위치 수동 설정 버전
-# 파일명: scenario1-customer-expansion.yml
+# Scenario 1: Customer Expansion Playbook - Manual Access Switch Setup Version
+# Filename: scenario1-customer-expansion.yml
 # 
-# 목적: 기존 고객의 네트워크 환경을 확장하여 추가 서비스나 이벤트를 지원
-# 범용성: 다양한 고객과 VLAN에 재사용 가능
-# 제약사항: Access 스위치는 vIOS L2 SSH 제한으로 수동 설정 필요
+# Purpose: Expand an existing customer's network environment to support additional services or events
+# Reusability: Can be reused for various customers and VLANs
+# Constraints: Access switches require manual configuration due to vIOS L2 SSH limitations
 # ===================================================================
 ---
-- name: "시나리오 1: 고객 확장 - 초기화 및 변수 확인"
+- name: "Scenario 1: Customer Expansion - Initialization and Variable Check"
   hosts: localhost
   gather_facts: false
   vars:
-    # 기본 설정 (vars 파일이나 extra-vars로 오버라이드 가능)
+    # Default settings (can be overridden by vars file or extra-vars)
     expansion:
-      customer_id: "A"                    # 확장할 고객 ID
-      customer_name: "Customer A"         # 고객 이름 (로그용)
-      new_vlan_id: 105                    # 새로 추가할 VLAN ID
-      new_network: "10.100.50.0/24"      # 새 네트워크 대역
-      new_gateway: "10.100.50.1"         # 새 게이트웨이 IP
-      description: "Event Pool Service"   # 서비스 설명
-      target_dist: "dist1-sw"            # 대상 Distribution 스위치
-      target_access: "access-sw4"        # 대상 Access 스위치 (수동 설정)
-      core_next_hop: "10.0.1.2"          # Core에서 사용할 Next Hop
-      dist_interface: "GigabitEthernet2/0" # Dist 스위치 인터페이스
+      customer_id: "A"                      # Customer ID to expand
+      customer_name: "Customer A"           # Customer name (for logs)
+      new_vlan_id: 105                      # VLAN ID to add
+      new_network: "10.100.50.0/24"         # New network range
+      new_gateway: "10.100.50.1"            # New gateway IP
+      description: "Event Pool Service"     # Service description
+      target_dist: "dist1-sw"               # Target Distribution switch
+      target_access: "access-sw4"           # Target Access switch (manual config)
+      core_next_hop: "10.0.1.2"             # Next hop used by Core
+      dist_interface: "GigabitEthernet2/0"  # Distribution switch interface
 
-    # 로그 및 확인을 위한 설정
+    # Logging and validation
     log_prefix: "[EXPANSION]"
     
   tasks:
-    - name: "📋 시나리오 1 시작 - {{ expansion.customer_name }} 확장"
+    - name: "📋 Scenario 1 Start - {{ expansion.customer_name }} Expansion"
       debug:
         msg: |
           ================================================
-          🚀 시나리오 1: {{ expansion.customer_name }} 네트워크 확장
+          🚀 Scenario 1: {{ expansion.customer_name }} Network Expansion
           ================================================
-          확장 정보:
-          - 고객 ID: {{ expansion.customer_id }}
-          - 신규 VLAN: {{ expansion.new_vlan_id }}
-          - 네트워크 대역: {{ expansion.new_network }}
-          - 게이트웨이: {{ expansion.new_gateway }}
-          - 서비스 설명: {{ expansion.description }}
-          - 대상 장비: {{ expansion.target_dist }} → {{ expansion.target_access }} (수동)
+          Expansion Info:
+          - Customer ID: {{ expansion.customer_id }}
+          - New VLAN: {{ expansion.new_vlan_id }}
+          - Network Range: {{ expansion.new_network }}
+          - Gateway: {{ expansion.new_gateway }}
+          - Service Description: {{ expansion.description }}
+          - Target Devices: {{ expansion.target_dist }} → {{ expansion.target_access }} (manual)
           ================================================
-          ⚠️  참고: Access 스위치는 vIOS L2 제한으로 수동 설정됩니다.
+          ⚠️  Note: Access switches require manual configuration due to vIOS L2 limitations.
           ================================================
 
-    - name: "변수 유효성 검증"
+    - name: "Validate Variables"
       assert:
         that:
           - expansion.customer_id is defined
@@ -53,28 +53,28 @@
           - expansion.new_network is defined
           - expansion.new_gateway is defined
           - expansion.target_dist is defined
-        fail_msg: "필수 변수가 누락되었습니다. inventory 파일(-i)도 확인해주세요."
-        success_msg: "{{ log_prefix }} 기본 변수 검증 완료"
+        fail_msg: "Required variables are missing. Please also check your inventory file (-i)."
+        success_msg: "{{ log_prefix }} Variable validation complete"
         
-    - name: "Inventory 그룹 확인"
+    - name: "Check Inventory Groups"
       debug:
         msg: |
-          Inventory 상태:
-          - Distribution 그룹: {{ groups['distribution'] if 'distribution' in groups else '없음 (inventory 파일 필요)' }}
-          - Core 그룹: {{ groups['core'] if 'core' in groups else '없음 (inventory 파일 필요)' }}
+          Inventory Status:
+          - Distribution Group: {{ groups['distribution'] if 'distribution' in groups else 'Missing (inventory file required)' }}
+          - Core Group: {{ groups['core'] if 'core' in groups else 'Missing (inventory file required)' }}
           
-    - name: "Inventory 검증"
+    - name: "Validate Inventory"
       assert:
         that:
           - "'distribution' in groups"
           - "'core' in groups"
           - "expansion.target_dist in groups['distribution']"
         fail_msg: |
-          Inventory 설정이 필요합니다. 다음과 같이 실행하세요:
+          Inventory configuration is required. Run as follows:
           ansible-playbook scenario1-customer-expansion.yml -i inventory/hosts.ini -e @vars/scenario1_customer_a_expansion.yml
-        success_msg: "{{ log_prefix }} Inventory 검증 완료"
+        success_msg: "{{ log_prefix }} Inventory validation complete"
 
-- name: "Core Router - {{ expansion.customer_name }} 확장을 위한 라우팅 추가"
+- name: "Core Router - Add Routing for {{ expansion.customer_name }} Expansion"
   hosts: core
   gather_facts: false
   vars:
@@ -82,20 +82,20 @@
     log_prefix: "{{ hostvars['localhost']['log_prefix'] }}"
     
   tasks:
-    - name: "{{ log_prefix }} Core Router 현재 라우팅 테이블 확인"
+    - name: "{{ log_prefix }} Check Current Routing Table on Core Router"
       ios_command:
         commands:
           - "show ip route | include {{ expansion.new_network.split('/')[0].split('.')[0:3] | join('.') }}"
       register: current_routes
       ignore_errors: true
       
-    - name: "{{ log_prefix }} 기존 라우팅 중복 확인"
+    - name: "{{ log_prefix }} Check for Existing Routes"
       debug:
         msg: |
-          기존 라우팅 확인:
-          {{ current_routes.stdout[0] if current_routes is succeeded and current_routes.stdout[0] is defined else '관련 라우팅 없음 (확인 불가)' }}
+          Existing Routes:
+          {{ current_routes.stdout[0] if current_routes is succeeded and current_routes.stdout[0] is defined else 'No related routes found (unable to verify)' }}
           
-    - name: "{{ log_prefix }} {{ expansion.customer_name }} 확장 네트워크 라우팅 추가"
+    - name: "{{ log_prefix }} Add Route for {{ expansion.customer_name }} Expansion Network"
       ios_config:
         lines:
           - "ip route {{ expansion.new_network }} {{ expansion.new_netmask }} {{ expansion.core_next_hop }}"
@@ -104,21 +104,21 @@
       vars:
         ansible_command_timeout: 60
       
-    - name: "{{ log_prefix }} Core Router 라우팅 추가 결과 확인"
+    - name: "{{ log_prefix }} Verify New Route on Core Router"
       ios_command:
         commands:
           - "show ip route {{ expansion.new_network }}"
       register: new_route_verify
       
-    - name: "{{ log_prefix }} Core Router 설정 결과"
+    - name: "{{ log_prefix }} Core Router Configuration Result"
       debug:
         msg: |
-          ✅ Core Router 라우팅 설정 완료
-          - 네트워크: {{ expansion.new_network }}
+          ✅ Core Router Routing Config Complete
+          - Network: {{ expansion.new_network }}
           - Next Hop: {{ expansion.core_next_hop }}
-          - 라우팅 상태: {{ new_route_verify.stdout[0] }}
+          - Routing Status: {{ new_route_verify.stdout[0] }}
 
-- name: "Distribution Switch - {{ expansion.customer_name }} 확장 VLAN 서브인터페이스 생성"
+- name: "Distribution Switch - Create VLAN Subinterface for {{ expansion.customer_name }} Expansion"
   hosts: distribution
   gather_facts: false
   vars:
@@ -126,14 +126,14 @@
     log_prefix: "{{ hostvars['localhost']['log_prefix'] }}"
     
   tasks:
-    - name: "{{ log_prefix }} {{ expansion.target_dist }} 현재 인터페이스 확인"
+    - name: "{{ log_prefix }} Check Current Interfaces on {{ expansion.target_dist }}"
       ios_command:
         commands:
           - "show ip interface brief | include {{ expansion.dist_interface }}"
       register: current_interfaces
       when: inventory_hostname == expansion.target_dist
       
-    - name: "{{ log_prefix }} 기존 서브인터페이스 중복 확인"
+    - name: "{{ log_prefix }} Check for Existing Subinterface"
       ios_command:
         commands:
           - "show interface {{ expansion.dist_interface }}.{{ expansion.new_vlan_id }}"
@@ -141,14 +141,14 @@
       ignore_errors: true
       when: inventory_hostname == expansion.target_dist
       
-    - name: "{{ log_prefix }} 중복 확인 결과"
+    - name: "{{ log_prefix }} Duplicate Check Result"
       debug:
         msg: |
-          서브인터페이스 중복 확인:
-          {{ 'VLAN ' + expansion.new_vlan_id|string + ' 이미 존재' if existing_subint.stdout[0] is defined and 'line protocol' in existing_subint.stdout[0] else 'VLAN ' + expansion.new_vlan_id|string + ' 사용 가능' }}
+          Subinterface Duplication Check:
+          {{ 'VLAN ' + expansion.new_vlan_id|string + ' already exists' if existing_subint.stdout[0] is defined and 'line protocol' in existing_subint.stdout[0] else 'VLAN ' + expansion.new_vlan_id|string + ' is available' }}
       when: inventory_hostname == expansion.target_dist
       
-    - name: "{{ log_prefix }} {{ expansion.customer_name }} 확장 VLAN 서브인터페이스 생성"
+    - name: "{{ log_prefix }} Create VLAN Subinterface for {{ expansion.customer_name }} Expansion"
       ios_config:
         lines:
           - "interface {{ expansion.dist_interface }}.{{ expansion.new_vlan_id }}"
@@ -159,7 +159,7 @@
       when: inventory_hostname == expansion.target_dist
       register: dist_config_result
       
-    - name: "{{ log_prefix }} Distribution 스위치 설정 확인"
+    - name: "{{ log_prefix }} Verify Distribution Switch Configuration"
       ios_command:
         commands:
           - "show interface {{ expansion.dist_interface }}.{{ expansion.new_vlan_id }}"
@@ -167,17 +167,17 @@
       register: dist_verify
       when: inventory_hostname == expansion.target_dist
       
-    - name: "{{ log_prefix }} Distribution 스위치 설정 결과"
+    - name: "{{ log_prefix }} Distribution Switch Configuration Result"
       debug:
         msg: |
-          ✅ {{ expansion.target_dist }} 설정 완료
+          ✅ {{ expansion.target_dist }} Configuration Complete
           - VLAN ID: {{ expansion.new_vlan_id }}
-          - 네트워크: {{ expansion.new_network }}
-          - 게이트웨이: {{ expansion.new_gateway }}
-          - 인터페이스 상태: {{ dist_verify.stdout[1] if dist_verify.stdout[1] is defined else '확인 중...' }}
+          - Network: {{ expansion.new_network }}
+          - Gateway: {{ expansion.new_gateway }}
+          - Interface Status: {{ dist_verify.stdout[1] if dist_verify.stdout[1] is defined else 'Verifying...' }}
       when: inventory_hostname == expansion.target_dist
 
-- name: "Access Switch 수동 설정 스크립트 생성"
+- name: "Generate Manual Setup Script for Access Switch"
   hosts: localhost
   gather_facts: true
   vars:
@@ -185,33 +185,33 @@
     log_prefix: "{{ hostvars['localhost']['log_prefix'] }}"
     
   tasks:
-    - name: "logs 디렉토리 생성"
+    - name: "Create logs directory"
       file:
         path: "./logs"
         state: directory
       delegate_to: localhost
 
-    - name: "{{ log_prefix }} Access Switch 설정 스크립트 생성"
+    - name: "{{ log_prefix }} Generate Access Switch Setup Script"
       copy:
         content: |
           #!/bin/bash
-          # {{ expansion.target_access }} 수동 설정 스크립트
+          # {{ expansion.target_access }} Manual Setup Script
           # {{ expansion.customer_name }} - {{ expansion.description }}
-          # 생성일: {{ ansible_date_time.iso8601 }}
+          # Generated: {{ ansible_date_time.iso8601 }}
           
           echo "================================================"
-          echo "{{ expansion.target_access }} 수동 설정 가이드"
+          echo "{{ expansion.target_access }} Manual Setup Guide"
           echo "================================================"
           echo ""
-          echo "⚠️  이 스크립트는 가이드용입니다. Access 스위치에 콘솔로 접속하여 수동 실행하세요."
+          echo "⚠️  This script is for guidance only. Log in to the Access switch console and execute manually."
           echo ""
-          echo "1. {{ expansion.target_access }}에 콘솔 접속"
+          echo "1. Log in to {{ expansion.target_access }} console"
           echo ""
-          echo "2. 업링크 포트 트런크 설정 (중요!):"
+          echo "2. Configure uplink port as trunk (important!):"
           echo "Switch> enable"
           echo "Switch# configure terminal"
           echo ""
-          echo "# 업링크 포트를 트런크로 설정 (dist2-sw 연결 포트)"
+          echo "# Set uplink port (to dist2-sw) as trunk"
           echo "Switch(config)# interface GigabitEthernet0/0"
           echo "Switch(config-if)# switchport trunk encapsulation dot1q"
           echo "Switch(config-if)# switchport mode trunk"
@@ -219,84 +219,84 @@
           echo "Switch(config-if)# no shutdown"
           echo "Switch(config-if)# exit"
           echo ""
-          echo "3. VLAN 생성:"
+          echo "3. Create VLAN:"
           echo "Switch(config)# vlan {{ expansion.new_vlan_id }}"
           echo "Switch(config-vlan)# name {{ expansion.customer_id }}_{{ expansion.description | replace(' ', '_') }}"
           echo "Switch(config-vlan)# exit"
           echo ""
-          echo "4. 고객 포트를 VLAN에 할당:"
+          echo "4. Assign customer ports to VLAN:"
           echo "Switch(config)# interface range GigabitEthernet0/1-2"
           echo "Switch(config-if-range)# switchport mode access"
           echo "Switch(config-if-range)# switchport access vlan {{ expansion.new_vlan_id }}"
           echo "Switch(config-if-range)# no shutdown"
           echo "Switch(config-if-range)# exit"
           echo ""
-          echo "5. Spanning Tree 최적화 (선택적):"
+          echo "5. Optimize Spanning Tree (optional):"
           echo "Switch(config)# interface GigabitEthernet0/0"
           echo "Switch(config-if)# spanning-tree portfast trunk"
           echo "Switch(config-if)# exit"
           echo ""
-          echo "6. 설정 저장:"
+          echo "6. Save configuration:"
           echo "Switch(config)# exit"
           echo "Switch# write memory"
           echo ""
-          echo "7. 설정 확인:"
+          echo "7. Verify configuration:"
           echo "Switch# show interface trunk"
           echo "Switch# show vlan brief"
           echo "Switch# show spanning-tree vlan {{ expansion.new_vlan_id }}"
           echo ""
           echo "================================================"
-          echo "문제해결 가이드:"
+          echo "Troubleshooting Guide:"
           echo "================================================"
-          echo "- ping이 안 되면: Spanning Tree가 수렴할 때까지 대기 (30초~1분)"
-          echo "- 트래픽 확인: show interface trunk"
-          echo "- MAC 학습 확인: show mac address-table vlan {{ expansion.new_vlan_id }}"
+          echo "- If ping fails: wait for Spanning Tree to converge (30s~1m)"
+          echo "- Check traffic: show interface trunk"
+          echo "- Check MAC learning: show mac address-table vlan {{ expansion.new_vlan_id }}"
           echo "================================================"
         dest: "./logs/{{ expansion.target_access }}_setup_vlan{{ expansion.new_vlan_id }}.sh"
         mode: '0755'
       delegate_to: localhost
       
-    - name: "{{ log_prefix }} VPCS 설정 스크립트 생성"
+    - name: "{{ log_prefix }} Generate VPCS Setup Script"
       copy:
         content: |
           #!/bin/bash
-          # VPCS 설정 스크립트
+          # VPCS Setup Script
           # {{ expansion.customer_name }} - {{ expansion.description }}
-          # 생성일: {{ ansible_date_time.iso8601 }}
+          # Generated: {{ ansible_date_time.iso8601 }}
           
           echo "================================================"
-          echo "VPCS 수동 설정 가이드"
+          echo "VPCS Manual Setup Guide"
           echo "================================================"
           echo ""
-          echo "{{ expansion.target_access }}에 연결된 VPCS들에 다음 설정 적용:"
+          echo "Apply the following configuration to VPCS connected to {{ expansion.target_access }}:"
           echo ""
           {% if vpcs_config is defined %}
           {% for vpcs in vpcs_config %}
-          echo "{{ vpcs.name }} ({{ vpcs.description }}) 설정:"
+          echo "{{ vpcs.name }} ({{ vpcs.description }}) configuration:"
           echo "VPCS> ip {{ vpcs.ip }} {{ vpcs.gateway }}"
           echo "VPCS> save"
           echo ""
           {% endfor %}
           {% else %}
-          echo "VPCS-{{ expansion.customer_id }}4 설정:"
+          echo "VPCS-{{ expansion.customer_id }}4 configuration:"
           echo "VPCS> ip 10.100.50.10/24 {{ expansion.new_gateway }}"
           echo "VPCS> save"
           echo ""
-          echo "VPCS-{{ expansion.customer_id }}5 설정:"
+          echo "VPCS-{{ expansion.customer_id }}5 configuration:"
           echo "VPCS> ip 10.100.50.20/24 {{ expansion.new_gateway }}"
           echo "VPCS> save"
           echo ""
           {% endif %}
-          echo "연결성 테스트:"
+          echo "Connectivity Test:"
           echo "VPCS> ping {{ expansion.new_gateway }}"
-          echo "VPCS> ping 10.100.10.10  # 기존 Customer A 네트워크 테스트"
+          echo "VPCS> ping 10.100.10.10  # Test with existing Customer A network"
           echo ""
           echo "================================================"
         dest: "./logs/vpcs_setup_{{ expansion.customer_id }}_vlan{{ expansion.new_vlan_id }}.sh"
         mode: '0755'
       delegate_to: localhost
 
-- name: "연결성 테스트 및 검증"
+- name: "Connectivity Test and Verification"
   hosts: localhost
   gather_facts: false
   vars:
@@ -304,7 +304,7 @@
     log_prefix: "{{ hostvars['localhost']['log_prefix'] }}"
     
   tasks:
-    - name: "{{ log_prefix }} Core에서 새 게이트웨이로 연결성 테스트"
+    - name: "{{ log_prefix }} Test Connectivity from Core to New Gateway"
       ios_command:
         commands:
           - "ping {{ expansion.new_gateway }}"
@@ -312,76 +312,76 @@
       delegate_to: "{{ groups['core'][0] }}"
       ignore_errors: true
       
-    - name: "{{ log_prefix }} 연결성 테스트 결과"
+    - name: "{{ log_prefix }} Connectivity Test Result"
       debug:
         msg: |
-          🔍 네트워크 연결성 테스트:
-          {{ '✅ Core → Gateway 연결 성공' if ping_test is succeeded and ping_test.stdout[0] is defined and 'Success rate is 100' in ping_test.stdout[0] else '⚠️  Core → Gateway 연결 확인 필요 (수동 테스트 권장)' }}
+          🔍 Network Connectivity Test:
+          {{ '✅ Core → Gateway connection successful' if ping_test is succeeded and ping_test.stdout[0] is defined and 'Success rate is 100' in ping_test.stdout[0] else '⚠️  Core → Gateway connection needs manual verification' }}
 
-- name: "시나리오 1 완료 및 다음 단계 안내"
+- name: "Scenario 1 Completion and Next Steps"
   hosts: localhost
   gather_facts: false
   vars:
     expansion: "{{ hostvars['localhost']['expansion'] }}"
     
   tasks:
-    - name: "🎉 시나리오 1 완료 - {{ expansion.customer_name }} 확장"
+    - name: "🎉 Scenario 1 Complete - {{ expansion.customer_name }} Expansion"
       debug:
         msg: |
           ================================================
-          ✅ 시나리오 1 완료: {{ expansion.customer_name }} 네트워크 확장
+          ✅ Scenario 1 Complete: {{ expansion.customer_name }} Network Expansion
           ================================================
           
-          자동 구성 완료:
-          - ✅ Core Router: {{ expansion.new_network }} → {{ expansion.core_next_hop }} 라우팅 추가
-          - ✅ {{ expansion.target_dist }}: VLAN {{ expansion.new_vlan_id }} 서브인터페이스 생성
-          - ✅ 게이트웨이 {{ expansion.new_gateway }} 설정 완료
+          Automatic Configuration Complete:
+          - ✅ Core Router: Added route {{ expansion.new_network }} → {{ expansion.core_next_hop }}
+          - ✅ {{ expansion.target_dist }}: Created VLAN {{ expansion.new_vlan_id }} subinterface
+          - ✅ Gateway {{ expansion.new_gateway }} configured
           
-          📋 수동 설정 스크립트 생성 완료:
+          📋 Manual Setup Scripts Generated:
           ================================================
           - ./logs/{{ expansion.target_access }}_setup_vlan{{ expansion.new_vlan_id }}.sh
           - ./logs/vpcs_setup_{{ expansion.customer_id }}_vlan{{ expansion.new_vlan_id }}.sh
           
-          📝 다음 수동 작업:
+          📝 Next Manual Steps:
           ================================================
-          1. {{ expansion.target_access }} 콘솔 접속 후 스크립트 참조
-          2. VLAN {{ expansion.new_vlan_id }} 생성 및 포트 할당
-          3. VPCS IP 설정 (스크립트 참조)
-          4. 연결성 테스트: ping {{ expansion.new_gateway }}
+          1. Log in to {{ expansion.target_access }} console and follow script
+          2. Create VLAN {{ expansion.new_vlan_id }} and assign ports
+          3. Configure VPCS IPs (see script)
+          4. Test connectivity: ping {{ expansion.new_gateway }}
           
-          ⚠️  참고: Access 스위치는 vIOS L2 제한으로 수동 설정 필요
+          ⚠️  Note: Access switch requires manual setup due to vIOS L2 limitations
           ================================================
 
-    - name: "확장 완료 정보 저장 (로그용)"
+    - name: "Save Expansion Completion Info (for logs)"
       copy:
         content: |
-          # {{ expansion.customer_name }} 확장 완료 정보
-          # 생성일: {{ ansible_date_time.iso8601 }}
+          # {{ expansion.customer_name }} Expansion Completion Info
+          # Generated: {{ ansible_date_time.iso8601 }}
           
-          고객정보:
+          Customer Info:
             ID: {{ expansion.customer_id }}
-            이름: {{ expansion.customer_name }}
+            Name: {{ expansion.customer_name }}
             
-          네트워크 정보:
+          Network Info:
             VLAN: {{ expansion.new_vlan_id }}
-            네트워크: {{ expansion.new_network }}
-            게이트웨이: {{ expansion.new_gateway }}
+            Network: {{ expansion.new_network }}
+            Gateway: {{ expansion.new_gateway }}
             
-          장비 정보:
-            Distribution: {{ expansion.target_dist }} (자동 설정 완료)
-            Access: {{ expansion.target_access }} (수동 설정 필요)
+          Device Info:
+            Distribution: {{ expansion.target_dist }} (auto-config complete)
+            Access: {{ expansion.target_access }} (manual setup required)
             
-          서비스 정보:
-            설명: {{ expansion.description }}
-            상태: 네트워크 계층 완료, Access 계층 수동 설정 대기
+          Service Info:
+            Description: {{ expansion.description }}
+            Status: Network layer complete, awaiting manual Access layer setup
         dest: "./logs/expansion_{{ expansion.customer_id }}_vlan{{ expansion.new_vlan_id }}_{{ ansible_date_time.epoch }}.log"
       delegate_to: localhost
 
 # ===================================================================
-# 변수 오버라이드 예시 (vars 파일 또는 extra-vars 사용)
+# Variable Override Example (using vars file or extra-vars)
 # ===================================================================
 # 
-# Customer B 확장 예시:
+# Example for Customer B Expansion:
 # ansible-playbook scenario1-customer-expansion.yml -e "
 # expansion={
 #   customer_id: 'B',
