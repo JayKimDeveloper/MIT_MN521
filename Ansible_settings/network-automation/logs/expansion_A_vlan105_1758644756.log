@@ -1,0 +1,19 @@
+# Customer A 확장 완료 정보
+# 생성일: 2025-09-23T16:25:56Z
+
+고객정보:
+  ID: A
+  이름: Customer A
+  
+네트워크 정보:
+  VLAN: 105
+  네트워크: 10.100.50.0
+  게이트웨이: 10.100.50.1
+  
+장비 정보:
+  Distribution: dist2-sw (자동 설정 완료)
+  Access: access-sw4 (수동 설정 필요)
+  
+서비스 정보:
+  설명: CustomerA_EventPool
+  상태: 네트워크 계층 완료, Access 계층 수동 설정 대기

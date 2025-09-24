@@ -1,0 +1,33 @@
+#!/bin/bash
+# access-sw4 수동 정리 스크립트
+# Customer A 확장 설정 제거
+# 생성일: 2025-09-22T15:02:29Z
+
+echo "================================================"
+echo "access-sw4 수동 정리 가이드"
+echo "================================================"
+echo ""
+echo "⚠️  이 스크립트는 가이드용입니다. Access 스위치에 콘솔로 접속하여 수동 실행하세요."
+echo ""
+echo "1. access-sw4에 콘솔 접속"
+echo ""
+echo "2. VLAN 105 관련 설정 확인:"
+echo "Switch# show vlan brief"
+echo "Switch# show interface status | include 105"
+echo ""
+echo "3. 포트에서 VLAN 제거 (필요시):"
+echo "Switch> enable"
+echo "Switch# configure terminal"
+echo "Switch(config)# interface range fastEthernet0/1-2"
+echo "Switch(config-if-range)# switchport access vlan 1"
+echo "Switch(config-if-range)# exit"
+echo ""
+echo "4. VLAN 105 삭제:"
+echo "Switch(config)# no vlan 105"
+echo "Switch(config)# exit"
+echo "Switch# write memory"
+echo ""
+echo "5. 설정 확인:"
+echo "Switch# show vlan brief"
+echo ""
+echo "================================================"
