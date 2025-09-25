@@ -127,7 +127,6 @@ Customer Networks:
 | **Cisco IOS** | 15.0+ | Network device OS | ✅ Tested & Validated |
 | **Ubuntu** | 20.04 | Ansible controller OS | ✅ Configured |
 | **Git** | 2.34+ | Version control for playbooks | ✅ Repository Ready |
-| **Paramiko** | 2.11+ | SSH network connection library | ✅ Configured |
 
 **Key Technical Achievements:**
 - Idempotent playbook design with comprehensive error handling
