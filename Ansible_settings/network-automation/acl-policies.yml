@@ -1,0 +1,53 @@
+---
+- name: ACL | 심플 고객 분리
+  hosts: distribution
+  gather_facts: no
+
+  vars:
+    sot: "{{ lookup('file','vars/customers.yml') | from_yaml }}"
+    fab: "{{ lookup('file','vars/fabric.yml')    | from_yaml }}"
+    loc: "{{ inventory_hostname | regex_replace('-sw$','') }}"
+    my:  "{{ fab.dists[inventory_hostname] }}"
+    custs: "{{ sot.customers | selectattr('location','equalto', loc) | list }}"
+    srv_if: "{{ my.base_if[ sot.switch_mapping[loc].servers ] }}"
+    usr_if: "{{ my.base_if[ sot.switch_mapping[loc].users ] }}"
+
+  tasks:
+    # 고객별 단일 OUT ACL 생성(웹/앱 허용 + 고객간 차단 + 기본 Drop)
+    - ios_config:
+        with_items: "{{ custs }}"
+        save_when: modified
+        lines: |
+          ip access-list extended CUST_{{ item.name }}_OUT
+          remark allow http/https
+          permit tcp {{ item.networks.web.split('/')[0] }} 0.0.0.255 any eq 80
+          permit tcp {{ item.networks.web.split('/')[0] }} 0.0.0.255 any eq 443
+          permit tcp {{ item.networks.app.split('/')[0] }} 0.0.0.255 any eq 80
+          permit tcp {{ item.networks.app.split('/')[0] }} 0.0.0.255 any eq 443
+          remark deny inter-tenant
+          {% for o in custs if o.name != item.name %}
+          deny ip {{ item.networks.web.split('/')[0] }} 0.0.0.255 {{ o.networks.web.split('/')[0] }} 0.0.0.255
+          deny ip {{ item.networks.app.split('/')[0] }} 0.0.0.255 {{ o.networks.app.split('/')[0] }} 0.0.0.255
+          deny ip {{ item.networks.db.split('/')[0]  }} 0.0.0.255 {{ o.networks.db.split('/')[0]  }} 0.0.0.255
+          deny ip {{ item.networks.users.split('/')[0]}} 0.0.0.255 {{ o.networks.users.split('/')[0]}} 0.0.0.255
+          {% endfor %}
+          remark allow to fabric
+          permit ip {{ item.networks.web.split('/')[0] }} 0.0.0.255 10.0.0.0 0.255.255.255
+          permit ip {{ item.networks.app.split('/')[0] }} 0.0.0.255 10.0.0.0 0.255.255.255
+          permit ip {{ item.networks.db.split('/')[0]  }} 0.0.0.255 10.0.0.0 0.255.255.255
+          permit ip {{ item.networks.users.split('/')[0]}} 0.0.0.255 10.0.0.0 0.255.255.255
+          deny ip any any log
+
+    # out 방향으로 서브IF에 간단히 적용
+    - ios_config:
+        with_items: "{{ custs }}"
+        lines: |
+          interface {{ srv_if }}.{{ item.vlans.web }}
+          ip access-group CUST_{{ item.name }}_OUT out
+          interface {{ srv_if }}.{{ item.vlans.app }}
+          ip access-group CUST_{{ item.name }}_OUT out
+          interface {{ srv_if }}.{{ item.vlans.db }}
+          ip access-group CUST_{{ item.name }}_OUT out
+          interface {{ usr_if }}.{{ item.vlans.users }}
+          ip access-group CUST_{{ item.name }}_OUT out
+

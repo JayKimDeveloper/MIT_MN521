@@ -1,0 +1,84 @@
+---
+- name: "MikroTik 간단 보안 설정"
+  hosts: mikrotik
+  gather_facts: false
+  
+  tasks:
+    # 1. 현재 상태 확인
+    - name: "현재 방화벽 규칙 개수 확인"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter print count-only
+      register: current_count
+
+    - name: "기존 규칙 출력"
+      debug:
+        msg: "현재 방화벽 규칙: {{ current_count.stdout[0] }}개"
+
+    # 2. 기본 연결 허용
+    - name: "기본 연결 허용 규칙"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=input action=accept connection-state=established,related comment="Allow established connections"
+
+    # 3. 잘못된 연결 차단
+    - name: "잘못된 연결 차단"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=input action=drop connection-state=invalid comment="Drop invalid connections"
+
+    # 4. 관리 네트워크에서만 SSH 허용
+    - name: "SSH 접근 허용 (관리 네트워크만)"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=input action=accept protocol=tcp src-address=192.168.122.0/24 dst-port=22 comment="Allow SSH from management network"
+
+    # 5. ICMP 허용 (ping)
+    - name: "ICMP 허용"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=input action=accept protocol=icmp comment="Allow ICMP"
+
+    # 6. 내부에서 외부로 포워딩 허용
+    - name: "내부→외부 포워딩 허용"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=forward action=accept in-interface=ether2 out-interface=ether1 comment="Allow LAN to WAN"
+          - /ip firewall filter add chain=forward action=accept connection-state=established,related comment="Allow established forward"
+
+    # 7. 나머지는 차단
+    - name: "나머지 트래픽 차단"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=input action=drop comment="Drop everything else INPUT"
+          - /ip firewall filter add chain=forward action=drop comment="Drop everything else FORWARD"
+
+    # 8. NAT 설정
+    - name: "NAT 설정"
+      community.routeros.command:
+        commands:
+          - /ip firewall nat add chain=srcnat action=masquerade out-interface=ether1 comment="NAT for internet"
+
+    # 9. 최종 확인
+    - name: "설정 완료 확인"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter print count-only
+      register: final_count
+
+    - name: "완료 메시지"
+      debug:
+        msg: |
+          ================================
+          간단 보안 설정 완료!
+          ================================
+          기존 규칙: {{ current_count.stdout[0] }}개
+          새 규칙: {{ final_count.stdout[0] }}개
+          
+          적용된 보안:
+          - 기존 연결 허용
+          - 잘못된 연결 차단  
+          - 관리 네트워크에서만 SSH
+          - 내부→외부 통신 허용
+          - 나머지 모두 차단
+          ================================

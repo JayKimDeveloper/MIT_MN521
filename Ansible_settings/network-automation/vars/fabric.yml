@@ -1,0 +1,22 @@
+---
+ospf_process: 1
+
+core:
+  router_id: "1.1.1.1"
+  enable_if:
+    - "FastEthernet1/0"   # core ↔ dist1
+    - "FastEthernet0/0"   # core ↔ CHR
+
+dists:
+  dist1-sw:
+    router_id: "2.2.2.2"
+    backbone_if: "FastEthernet0/0"   # dist1 ↔ core
+    base_if:
+      access-sw1: "FastEthernet0/1"  # servers side
+      access-sw2: "FastEthernet1/0"  # users side (1/1 → 1/0으로 변경)
+  dist2-sw:
+    router_id: "3.3.3.3"
+    backbone_if: "FastEthernet0/0"   # dist2 ↔ core
+    base_if:
+      access-sw3: "FastEthernet0/1"  # servers side
+      access-sw4: "FastEthernet1/0"  # users side (1/1 → 1/0으로 변경)

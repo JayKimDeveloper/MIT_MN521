@@ -1,0 +1,178 @@
+---
+- name: "MikroTik CHR 보안 강화 - 초기화 및 변수 설정"
+  hosts: localhost
+  gather_facts: true
+  vars:
+    mikrotik_security:
+      device_name: "CHR-FW"
+      wan_interface: "ether1"
+      lan_interface: "ether2" 
+      wan_network: "192.168.122.0/24"
+      lan_network: "10.0.0.0/30"
+      management_networks:
+        - "192.168.122.0/24"
+        - "10.0.0.0/24"
+      ssh_ports: "2220-2227"
+      
+    security_level: "enterprise"
+    log_prefix: "[MIKROTIK-SEC]"
+    
+  tasks:
+    - name: "MikroTik 보안 강화 시작"
+      debug:
+        msg: |
+          ================================================
+          MikroTik CHR 보안 강화 플레이북
+          ================================================
+          대상 장비: {{ mikrotik_security.device_name }}
+          보안 레벨: {{ security_level }}
+          WAN 인터페이스: {{ mikrotik_security.wan_interface }}
+          LAN 인터페이스: {{ mikrotik_security.lan_interface }}
+          관리 네트워크: {{ mikrotik_security.management_networks }}
+          ================================================
+
+- name: "MikroTik CHR 방화벽 보안 정책 적용"
+  hosts: mikrotik
+  gather_facts: false
+  vars:
+    mikrotik_security: "{{ hostvars['localhost']['mikrotik_security'] }}"
+    security_level: "{{ hostvars['localhost']['security_level'] }}"
+    log_prefix: "{{ hostvars['localhost']['log_prefix'] }}"
+    
+  tasks:
+    - name: "{{ log_prefix }} 간단한 방화벽 상태 확인"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter print count-only
+      register: firewall_count
+      
+    - name: "{{ log_prefix }} 현재 방화벽 규칙 개수"
+      debug:
+        msg: "현재 방화벽 규칙: {{ firewall_count.stdout[0] }}개"
+
+    # INPUT Chain 보안 강화
+    - name: "{{ log_prefix }} INPUT - 연결 상태 기반 필터링"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=input action=accept connection-state=established,related comment="Allow established/related"
+          - /ip firewall filter add chain=input action=drop connection-state=invalid comment="Drop invalid connections"
+
+    - name: "{{ log_prefix }} INPUT - SSH 브루트포스 보호 1단계"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=input action=add-src-to-address-list protocol=tcp dst-port=22,8291 connection-state=new src-address-list=!ssh_whitelist address-list=ssh_stage1 address-list-timeout=1m comment="SSH Brute Force Stage 1"
+
+    - name: "{{ log_prefix }} INPUT - SSH 브루트포스 보호 2단계"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=input action=add-src-to-address-list protocol=tcp dst-port=22,8291 connection-state=new src-address-list=ssh_stage1 address-list=ssh_stage2 address-list-timeout=1h comment="SSH Brute Force Stage 2"
+
+    - name: "{{ log_prefix }} INPUT - SSH 브루트포스 보호 최종 차단"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=input action=add-src-to-address-list protocol=tcp dst-port=22,8291 connection-state=new src-address-list=ssh_stage2 address-list=ssh_blacklist address-list-timeout=1d comment="SSH Brute Force Final"
+          - /ip firewall filter add chain=input action=drop src-address-list=ssh_blacklist comment="Drop SSH Brute Force IPs"
+
+    - name: "{{ log_prefix }} INPUT - 관리 네트워크에서만 SSH 허용"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=input action=accept protocol=tcp src-address={{ mikrotik_security.management_networks | join(',') }} dst-port=22,8291 comment="Allow SSH/Winbox from trusted networks"
+
+    - name: "{{ log_prefix }} INPUT - ICMP 제한"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=input action=accept protocol=icmp limit=5,10:packet comment="Allow limited ICMP"
+          - /ip firewall filter add chain=input action=drop protocol=icmp comment="Drop excessive ICMP"
+
+    - name: "{{ log_prefix }} INPUT - DNS 보안"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=input action=accept protocol=udp src-address={{ mikrotik_security.lan_network }} dst-port=53 comment="Allow DNS from LAN only"
+
+    - name: "{{ log_prefix }} INPUT - WAN 인터페이스 차단"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=input action=drop in-interface={{ mikrotik_security.wan_interface }} comment="Drop WAN input"
+
+    # FORWARD Chain 보안 강화
+    - name: "{{ log_prefix }} FORWARD - 연결 상태 기반 필터링"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=forward action=accept connection-state=established,related comment="Allow established/related forwarding"
+          - /ip firewall filter add chain=forward action=drop connection-state=invalid comment="Drop invalid forwarding"
+
+    - name: "{{ log_prefix }} FORWARD - 내부에서 외부로 허용"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=forward action=accept in-interface={{ mikrotik_security.lan_interface }} out-interface={{ mikrotik_security.wan_interface }} comment="Allow LAN to WAN"
+
+    - name: "{{ log_prefix }} FORWARD - 포트포워딩 허용"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=forward action=accept protocol=tcp dst-port={{ mikrotik_security.ssh_ports }} comment="Allow GNS3 SSH Ports"
+          - /ip firewall filter add chain=forward action=accept protocol=tcp dst-port=22,23 src-address={{ mikrotik_security.management_networks | join(',') }} comment="Allow SSH/Telnet from trusted sources"
+
+    - name: "{{ log_prefix }} FORWARD - ICMP 제한"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=forward action=accept protocol=icmp limit=10,20:packet comment="Allow limited ICMP forwarding"
+
+    - name: "{{ log_prefix }} FORWARD - 최종 차단"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=forward action=drop comment="Drop all other forward traffic"
+
+    # Enterprise 보안 기능
+    - name: "{{ log_prefix }} Enterprise - 포트 스캔 탐지"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=input action=add-src-to-address-list protocol=tcp psd=21,3s,3,1 address-list=port_scan_detect address-list-timeout=1d comment="Port scan detection"
+          - /ip firewall filter add chain=input action=drop src-address-list=port_scan_detect comment="Drop port scan IPs"
+      when: security_level == "enterprise"
+
+    - name: "{{ log_prefix }} Enterprise - SYN Flood 보호"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=input action=accept protocol=tcp connection-state=new connection-limit=20,32 comment="SYN Flood protection"
+          - /ip firewall filter add chain=input action=drop protocol=tcp connection-state=new comment="Drop excessive SYN"
+      when: security_level == "enterprise"
+
+    # 로깅 및 최종 정책
+    - name: "{{ log_prefix }} 보안 로깅 활성화"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=input action=log log-prefix="SECURITY-DROP-INPUT: " comment="Log input drops"
+          - /ip firewall filter add chain=input action=drop comment="Final input drop"
+          - /ip firewall filter add chain=forward action=log log-prefix="SECURITY-DROP-FORWARD: " comment="Log forward drops"
+          - /ip firewall filter add chain=forward action=drop comment="Final forward drop"
+
+    # NAT 설정
+    - name: "{{ log_prefix }} NAT 보안 설정"
+      community.routeros.command:
+        commands:
+          - /ip firewall nat add chain=srcnat action=masquerade out-interface={{ mikrotik_security.wan_interface }} comment="Secure masquerade"
+
+    - name: "{{ log_prefix }} 보안 설정 완료 확인"
+      community.routeros.command:
+        commands:
+          - /ip firewall filter print count-only
+          - /ip firewall address-list print count-only
+      register: final_status
+
+    - name: "보안 강화 결과"
+      debug:
+        msg: |
+          ================================================
+          MikroTik CHR 보안 강화 완료!
+          ================================================
+          방화벽 규칙: {{ final_status.stdout[0] }}개
+          주소 목록: {{ final_status.stdout[1] }}개
+          
+          적용된 보안 기능:
+          - SSH 브루트포스 방지 (3단계)
+          - 포트 스캔 탐지 (Enterprise)
+          - DDoS 보호 (연결 제한)
+          - 관리 네트워크 제한
+          - 완전 로깅 시스템
+          ================================================
+

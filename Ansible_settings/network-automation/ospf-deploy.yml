@@ -1,0 +1,61 @@
+---
+- name: OSPF | 심플 배포
+  hosts: all
+  gather_facts: no
+  pre_tasks:
+    - include_vars: { file: "vars/customers.yml", name: sot }
+    - include_vars: { file: "vars/fabric.yml",   name: fab }
+
+# Core: 지정 인터페이스만 un-passive
+- hosts: core
+  gather_facts: no
+  vars: { fab: "{{ hostvars['localhost'].fab }}" }
+  tasks:
+    - name: "Core OSPF 기본 설정"
+      ios_config:
+        parents: "router ospf {{ fab.ospf_process|default(1) }}"
+        lines:
+          - "router-id {{ fab.core.router_id }}"
+          - "passive-interface default"
+
+    - name: "Core OSPF 활성 인터페이스 설정"
+      ios_config:
+        parents: "router ospf {{ fab.ospf_process|default(1) }}"
+        lines:
+          - "no passive-interface {{ item }}"
+      loop: "{{ fab.core.enable_if }}"
+
+# Dist: 백본 IF + 고객 VLAN 서브IF에 OSPF area 0
+- hosts: distribution
+  gather_facts: no
+  vars:
+    sot: "{{ hostvars['localhost'].sot }}"
+    fab: "{{ hostvars['localhost'].fab }}"
+    my:  "{{ fab.dists[inventory_hostname] }}"
+    loc: "{{ inventory_hostname | regex_replace('-sw$','') }}"
+    custs: "{{ sot.customers | selectattr('location','equalto', loc) | list }}"
+    srv_if: "{{ my.base_if[ sot.switch_mapping[loc].servers ] }}"
+    usr_if: "{{ my.base_if[ sot.switch_mapping[loc].users ] }}"
+  tasks:
+    - name: "Distribution OSPF 기본 설정"
+      ios_config:
+        parents: "router ospf {{ fab.ospf_process|default(1) }}"
+        lines:
+          - "router-id {{ my.router_id }}"
+          - "passive-interface default"
+          - "no passive-interface {{ my.backbone_if }}"
+          - "no passive-interface {{ srv_if }}"
+          - "no passive-interface {{ usr_if }}"
+
+    - name: "Distribution OSPF VLAN 인터페이스 설정"
+      ios_config:
+        lines:
+          - "interface {{ srv_if }}.{{ item.vlans.web }}"
+          - "ip ospf {{ fab.ospf_process|default(1) }} area 0"
+          - "interface {{ srv_if }}.{{ item.vlans.app }}"
+          - "ip ospf {{ fab.ospf_process|default(1) }} area 0"
+          - "interface {{ srv_if }}.{{ item.vlans.db }}"
+          - "ip ospf {{ fab.ospf_process|default(1) }} area 0"
+          - "interface {{ usr_if }}.{{ item.vlans.users }}"
+          - "ip ospf {{ fab.ospf_process|default(1) }} area 0"
+      loop: "{{ custs }}"

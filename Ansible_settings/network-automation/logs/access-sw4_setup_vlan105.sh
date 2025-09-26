@@ -1,7 +1,7 @@
 #!/bin/bash
 # access-sw4 수동 설정 스크립트
 # Customer A - CustomerA_EventPool
-# 생성일: 2025-09-24T00:45:38Z
+# 생성일: 2025-09-24T01:12:48Z
 
 echo "================================================"
 echo "access-sw4 수동 설정 가이드"
