@@ -1,0 +1,88 @@
+---
+customers:
+  - name: "CustomerA"
+    location: "dist1"
+    vlans:
+      web: 100
+      app: 101  
+      db: 102
+      users: 109
+    networks:
+      web: "10.100.10.0/24"
+      app: "10.100.20.0/24"
+      db: "10.100.30.0/24" 
+      users: "10.100.99.0/24"
+    
+    # Server information - add as needed
+    servers:
+      - { name: "PC1", port: "1/0", type: "web", description: "Web Server 1" }
+      - { name: "PC2", port: "1/1", type: "app", description: "App Server 1" }
+      - { name: "PC3", port: "1/2", type: "db", description: "DB Server 1" }
+      # Add new servers here
+      # - { name: "PC19", port: "1/6", type: "web", description: "Web Server 2" }
+      # - { name: "PC20", port: "1/7", type: "app", description: "App Server 2" }
+    
+    # User/Employee information - add as needed  
+    users:
+      - { name: "PC7", port: "1/0", person: "John Kim", role: "end-user", description: "Development Team" }
+      - { name: "PC8", port: "1/1", person: "Sarah Lee", role: "end-user", description: "Design Team" }
+      - { name: "PC9", port: "1/2", person: "Mike Park", role: "administrator", description: "IT Manager" }
+      # Add new employees here
+      # - { name: "PC21", port: "1/6", person: "Alex Choi", role: "end-user", description: "Marketing Team" }
+      # - { name: "PC22", port: "1/7", person: "Lisa Jung", role: "end-user", description: "Sales Team" }
+
+  - name: "CustomerB"
+    location: "dist1" 
+    vlans:
+      web: 200
+      app: 201
+      db: 202
+      users: 209
+    networks:
+      web: "10.200.10.0/24"
+      app: "10.200.20.0/24"
+      db: "10.200.30.0/24"
+      users: "10.200.99.0/24"
+    
+    servers:
+      - { name: "PC4", port: "1/3", type: "web", description: "Web Server 1" }
+      - { name: "PC5", port: "1/4", type: "app", description: "App Server 1" }
+      - { name: "PC6", port: "1/5", type: "db", description: "DB Server 1" }
+    
+    users:
+      - { name: "PC10", port: "1/3", person: "David Hong", role: "end-user", description: "Accounting Team" }
+      - { name: "PC11", port: "1/4", person: "Emma Kang", role: "end-user", description: "HR Team" }  
+      - { name: "PC12", port: "1/5", person: "Steve Lee", role: "administrator", description: "Department Head" }
+
+  - name: "CustomerC"
+    location: "dist2"
+    vlans:
+      web: 300
+      app: 301
+      db: 302
+      users: 309
+    networks:
+      web: "10.300.10.0/24"
+      app: "10.300.20.0/24" 
+      db: "10.300.30.0/24"
+      users: "10.300.99.0/24"
+    
+    servers:
+      - { name: "PC13", port: "1/0", type: "web", description: "Web Server 1" }
+      - { name: "PC14", port: "1/1", type: "app", description: "App Server 1" }
+      - { name: "PC15", port: "1/2", type: "db", description: "DB Server 1" }
+    
+    users:
+      - { name: "PC16", port: "1/0", person: "Grace Yoon", role: "end-user", description: "Planning Team" }
+      - { name: "PC17", port: "1/1", person: "Tom Cho", role: "end-user", description: "Operations Team" }
+      - { name: "PC18", port: "1/2", person: "Amy Lim", role: "administrator", description: "Administrator" }
+
+# Switch mapping (do not change)
+switch_mapping:
+  dist1:
+    servers: "access-sw1"
+    users: "access-sw2"
+  dist2:
+    servers: "access-sw3" 
+    users: "access-sw4"
+

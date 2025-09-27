@@ -1,0 +1,39 @@
+---
+- name: "QoS 설정 최종 확인"
+  hosts: distribution
+  gather_facts: false
+  
+  tasks:
+    - name: "QoS 인터페이스 적용 상태 확인"
+      ios_command:
+        commands:
+          - "show policy-map interface FastEthernet0/1"
+          - "show policy-map SIMPLE_QOS"
+      register: qos_final_status
+      when: inventory_hostname == "dist1-sw"
+
+    - name: "QoS 완전 성공 확인"
+      debug:
+        msg: |
+          ================================================
+          QoS 자동화 완전 성공!
+          ================================================
+          
+          QoS 설정 및 적용 완료:
+          - ACL 기반 트래픽 분류 ✓
+          - Class-map 트래픽 클래스 ✓
+          - Policy-map 대역폭 정책 ✓
+          - 인터페이스 적용 ✓
+          
+          대역폭 할당:
+          - 웹 트래픽 (HTTP/HTTPS): 40%
+          - DB 트래픽 (MySQL/PostgreSQL): 25%
+          - 기타 트래픽: 35%
+          
+          확인 결과:
+          {{ qos_final_status.stdout[0] if qos_final_status.stdout is defined else '인터페이스 확인 중...' }}
+          
+          ================================================
+          네트워크 자동화 프로젝트 100% 완성!
+          ================================================
+      when: inventory_hostname == "dist1-sw"

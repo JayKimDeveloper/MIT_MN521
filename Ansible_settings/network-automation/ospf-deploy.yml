@@ -1,12 +1,12 @@
 ---
-- name: OSPF | 심플 배포
+- name: OSPF | 동적 배포
   hosts: all
   gather_facts: no
   pre_tasks:
     - include_vars: { file: "vars/customers.yml", name: sot }
     - include_vars: { file: "vars/fabric.yml",   name: fab }
 
-# Core: 지정 인터페이스만 un-passive
+# Core: 지정 인터페이스만 un-passive + 네트워크 설정
 - hosts: core
   gather_facts: no
   vars: { fab: "{{ hostvars['localhost'].fab }}" }
@@ -25,7 +25,15 @@
           - "no passive-interface {{ item }}"
       loop: "{{ fab.core.enable_if }}"
 
-# Dist: 백본 IF + 고객 VLAN 서브IF에 OSPF area 0
+    - name: "Core OSPF 네트워크 설정"
+      ios_config:
+        parents: "router ospf {{ fab.ospf_process|default(1) }}"
+        lines:
+          - "network 10.0.1.0 0.0.0.255 area 0"
+          - "network 10.0.0.0 0.0.0.3 area 0"
+          - "network 10.0.2.0 0.0.0.255 area 0"
+
+# Distribution: 동적 네트워크 기반 OSPF
 - hosts: distribution
   gather_facts: no
   vars:
@@ -36,6 +44,7 @@
     custs: "{{ sot.customers | selectattr('location','equalto', loc) | list }}"
     srv_if: "{{ my.base_if[ sot.switch_mapping[loc].servers ] }}"
     usr_if: "{{ my.base_if[ sot.switch_mapping[loc].users ] }}"
+      
   tasks:
     - name: "Distribution OSPF 기본 설정"
       ios_config:
@@ -47,15 +56,18 @@
           - "no passive-interface {{ srv_if }}"
           - "no passive-interface {{ usr_if }}"
 
-    - name: "Distribution OSPF VLAN 인터페이스 설정"
+    # 고객 네트워크를 동적으로 추가
+    - name: "Distribution OSPF - 고객 네트워크 동적 설정"
       ios_config:
+        parents: "router ospf {{ fab.ospf_process|default(1) }}"
         lines:
-          - "interface {{ srv_if }}.{{ item.vlans.web }}"
-          - "ip ospf {{ fab.ospf_process|default(1) }} area 0"
-          - "interface {{ srv_if }}.{{ item.vlans.app }}"
-          - "ip ospf {{ fab.ospf_process|default(1) }} area 0"
-          - "interface {{ srv_if }}.{{ item.vlans.db }}"
-          - "ip ospf {{ fab.ospf_process|default(1) }} area 0"
-          - "interface {{ usr_if }}.{{ item.vlans.users }}"
-          - "ip ospf {{ fab.ospf_process|default(1) }} area 0"
+          - "network {{ item.base_network }} 0.0.255.255 area 0"
       loop: "{{ custs }}"
+      
+    # 백본 네트워크 설정
+    - name: "Distribution OSPF - 백본 네트워크 설정" 
+      ios_config:
+        parents: "router ospf {{ fab.ospf_process|default(1) }}"
+        lines:
+          - "network 10.0.1.0 0.0.0.255 area 0"
+          - "network 10.0.2.0 0.0.0.255 area 0"

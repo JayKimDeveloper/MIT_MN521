@@ -1,0 +1,146 @@
+---
+- name: "표준 ACL 기반 고객 격리 설정"
+  hosts: distribution
+  gather_facts: false
+  
+  tasks:
+    # 기존 ACL 정리
+    - name: "기존 확장 ACL 삭제"
+      ios_config:
+        lines:
+          - "no ip access-list extended CUSTOMER_A_PROTECT"
+          - "no ip access-list extended CUSTOMER_B_PROTECT"
+          - "no ip access-list extended MGMT_ALLOW"
+      ignore_errors: true
+
+    - name: "기존 표준 ACL 삭제"
+      ios_config:
+        lines:
+          - "no access-list 100"
+          - "no access-list 101"
+          - "no access-list 102"
+      ignore_errors: true
+
+    # Customer A 보호용 표준 ACL (100번)
+    - name: "Customer A 보호 ACL 100 생성"
+      ios_config:
+        lines:
+          - "access-list 100 deny ip any 10.200.0.0 0.0.255.255"
+          - "access-list 100 deny ip any 10.30.0.0 0.0.255.255"
+          - "access-list 100 permit ip any any"
+
+    # Customer B 보호용 표준 ACL (101번)
+    - name: "Customer B 보호 ACL 101 생성"
+      ios_config:
+        lines:
+          - "access-list 101 deny ip any 10.100.0.0 0.0.255.255"
+          - "access-list 101 deny ip any 10.30.0.0 0.0.255.255"
+          - "access-list 101 permit ip any any"
+
+    # Customer A VLAN 인터페이스에 ACL 적용
+    - name: "Customer A VLAN 100 (Web)에 ACL 적용"
+      ios_config:
+        parents: "interface FastEthernet0/1.100"
+        lines:
+          - "ip access-group 100 in"
+      when: inventory_hostname == "dist1-sw"
+
+    - name: "Customer A VLAN 101 (App)에 ACL 적용"
+      ios_config:
+        parents: "interface FastEthernet0/1.101"
+        lines:
+          - "ip access-group 100 in"
+      when: inventory_hostname == "dist1-sw"
+
+    - name: "Customer A VLAN 102 (DB)에 ACL 적용"
+      ios_config:
+        parents: "interface FastEthernet0/1.102"
+        lines:
+          - "ip access-group 100 in"
+      when: inventory_hostname == "dist1-sw"
+
+    - name: "Customer A VLAN 105 (Event)에 ACL 적용"
+      ios_config:
+        parents: "interface FastEthernet0/1.105"
+        lines:
+          - "ip access-group 100 in"
+      when: inventory_hostname == "dist1-sw"
+
+    # Customer B VLAN 인터페이스에 ACL 적용 (dist1-sw에 있다면)
+    - name: "Customer B VLAN 200 (Web)에 ACL 적용"
+      ios_config:
+        parents: "interface FastEthernet1/0.200"
+        lines:
+          - "ip access-group 101 in"
+      when: inventory_hostname == "dist1-sw"
+      ignore_errors: true
+
+    - name: "Customer B VLAN 201 (App)에 ACL 적용"
+      ios_config:
+        parents: "interface FastEthernet1/0.201"
+        lines:
+          - "ip access-group 101 in"
+      when: inventory_hostname == "dist1-sw"
+      ignore_errors: true
+
+    - name: "Customer B VLAN 202 (DB)에 ACL 적용"
+      ios_config:
+        parents: "interface FastEthernet1/0.202"
+        lines:
+          - "ip access-group 101 in"
+      when: inventory_hostname == "dist1-sw"
+      ignore_errors: true
+
+    # ACL 설정 확인
+    - name: "표준 ACL 설정 확인"
+      ios_command:
+        commands:
+          - "show access-lists 100"
+          - "show access-lists 101"
+      register: standard_acl_result
+
+    - name: "인터페이스 ACL 적용 상태 확인"
+      ios_command:
+        commands:
+          - "show ip interface FastEthernet0/1.100 | include access"
+          - "show ip interface FastEthernet0/1.101 | include access"
+      register: interface_acl_result
+      when: inventory_hostname == "dist1-sw"
+
+    - name: "표준 ACL 설정 완료"
+      debug:
+        msg: |
+          표준 ACL 기반 고객 격리 완료:
+          
+          ACL 100 (Customer A 보호):
+          - Customer B (10.200.x.x) 차단
+          - Customer C (10.30.x.x) 차단
+          - 기타 트래픽 허용
+          
+          ACL 101 (Customer B 보호):
+          - Customer A (10.100.x.x) 차단 (VLAN 105 포함)
+          - Customer C (10.30.x.x) 차단
+          - 기타 트래픽 허용
+          
+          적용된 인터페이스:
+          - Customer A: VLAN 100, 101, 102, 105
+          - Customer B: VLAN 200, 201, 202
+          
+          테스트 방법:
+          PC1> ping 10.200.10.10 (차단되어야 함)
+          PC1> ping 10.100.20.10 (허용되어야 함)
+
+    # 간단한 연결성 테스트
+    - name: "ACL 동작 테스트용 정보"
+      debug:
+        msg: |
+          ACL 테스트 가이드:
+          
+          차단 테스트 (실패해야 함):
+          - Customer A → Customer B: PC1> ping 10.200.10.10
+          - Customer B → Customer A: PC4> ping 10.100.10.10
+          
+          허용 테스트 (성공해야 함):
+          - Customer A 내부: PC1> ping 10.100.20.10
+          - Customer B 내부: PC4> ping 10.200.20.10
+          - 관리 네트워크: PC1> ping 10.0.1.1
